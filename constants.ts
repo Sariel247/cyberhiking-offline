@@ -137,7 +137,7 @@ makeShopItem('g26','望远镜','Binoculars','special',0.5,3500,'用于观测星�
 export const DIARY_ITEM: InventoryItem = {
   id: 'diary', name: { zh: '日记本', en: 'Diary' }, type: 'special', quality: 'basic',
   description: { zh: '记录出发前的准备与沿途见闻。', en: 'A journal for preparations and trail notes.' },
-  effect: status => status, quantity: 1, weight: 0.1, cost: 0, isConsumable: false
+  effect: status => status, quantity: 1, weight: 0, cost: 0, isConsumable: false
 };
 export const ROOT_ITEM: InventoryItem = {
   id: 'roots', name: { zh: '草根', en: 'Wild Roots' }, type: 'supplies', quality: 'basic',
