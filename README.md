@@ -1,19 +1,49 @@
 # 赛博徒步 · 离线版
 
-以公开仓库 PlutoCA/cyberhiking 为代码起点，参考官方网站公开玩法与内容整理的单机离线版本。非官方社区改造版。
+> 非官方离线改造项目。当前离线版 v0.2.0，对照官网公开版本 v0.1.55。
 
-- React + TypeScript + Vite
-- 本地 LocalStorage 存档
-- 已移除在线 Gemini 依赖，改为本地规则提示
-- PWA Service Worker 离线缓存
-- 官网商店数据：核心背负7件、生存装备20件、物资补给17件、特殊装备4件
-- 初始预算22,200；默认65L背包1.8kg，负重上限25kg
+## 当前完成
 
-本地运行需 Node.js 20：npm install、npm run dev；构建：npm run build。
+- React + TypeScript + Vite，部署于 GitHub Pages。
+- 首页公告、免费塘口起点选择、办公室与塘口开场、红心户外商店。
+- 商店四类 48 件物品，65L 背包默认预选，资金与负重校验。
+- 驴友之家场景、公告栏公开信、秀才对话、离开建筑/返回驴友之家热点。
+- 4 项生存指标：核心体温、体能储备、精神意志、饱腹感。
+- 生存面板含 41 个鳌太路线节点、海拔、营地、岔路与行程进度。
+- 背包、日记、原地活动、搜寻物资、原地休息。
+- 寻人启事事件与照片；后续随机事件复用公开源码中的事件库。
+- 本地 LocalStorage 存档、PWA Service Worker 离线缓存。
+- 本地程序化环境氛围音，不依赖在线音频文件。
 
-GitHub Pages 预期地址：https://sariel247.github.io/cyberhiking-offline/。首次访问需联网缓存资源，之后可在同一浏览器离线打开。
+## 当前未实现 / 与官网仍有差距
 
-代码基础：https://github.com/PlutoCA/cyberhiking
-官网参考：https://cyberhiking.com/（检查版本v0.1.55）
+- 账号登录、云端存档、山神通行证和付费起点不在本项目范围内。
+- 官网的全部动态天气、完整草药/老药农支线、所有场景插画、完整事件触发条件与音效仍需继续对照和移植。
+- 背景氛围音是离线生成的原创环境音，不是官网原始音轨。
+- 部分远端背景图片首次访问需要联网；Service Worker 缓存成功后，同一浏览器可离线使用。
+- 存档只保存在当前浏览器。清理网站数据会同时清除存档和缓存。
 
-鳌太线为高风险自然区域，本项目仅为虚拟游戏，不构成现实徒步建议。
+## 本地运行
+
+需要 Node.js 20 或更新版本：
+
+- npm install
+- npm run dev
+- npm run build
+- npm run preview
+
+## GitHub Pages
+
+仓库推送到 main 后，GitHub Actions 自动构建并部署：
+
+https://sariel247.github.io/cyberhiking-offline/
+
+首次访问请保持联网，等待页面、背景图片和 Service Worker 缓存完成。更新后建议刷新一次页面。
+
+## 来源
+
+- 代码基础：https://github.com/PlutoCA/cyberhiking
+- 官网参考：https://cyberhiking.com/
+- 当前对照版本：v0.1.55
+
+鳌太线为高风险自然区域。本项目仅为虚拟游戏，不构成现实徒步建议。
