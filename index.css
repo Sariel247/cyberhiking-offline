@@ -14,3 +14,6 @@
 .minimal-graphics .weather-particles{display:none}
 
 .route-map-scroll{mask-image:linear-gradient(to right,transparent 0,#000 22px,#000 calc(100% - 22px),transparent 100%);-webkit-mask-image:linear-gradient(to right,transparent 0,#000 22px,#000 calc(100% - 22px),transparent 100%)}
+
+.weather-particles.wind{background-image:repeating-linear-gradient(168deg,transparent 0 58px,rgba(235,248,255,.28) 59px,transparent 60px 104px);animation:windDrift 4s linear infinite}
+@keyframes windDrift{from{background-position:-180px 0}to{background-position:180px 0}}
