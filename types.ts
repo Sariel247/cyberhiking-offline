@@ -1,6 +1,8 @@
 
 export enum WeatherType {
   CLEAR = '晴朗',
+  OVERCAST = '阴',
+  HAIL = '冰雹',
   FOGGY = '浓雾',
   RAINY = '雷雨',
   SNOWY = '大雪',
@@ -16,7 +18,7 @@ export enum Season {
 
 export type Language = 'zh' | 'en';
 export type ItemQuality = 'basic' | 'pro' | 'elite';
-export type GamePhase = 'landing' | 'shopping' | 'intro' | 'hiking' | 'gameover';
+export type GamePhase = 'landing' | 'startpoint' | 'story' | 'shopping' | 'intro' | 'hiking' | 'gameover';
 
 export interface RouteOption {
   id: string;
@@ -112,6 +114,9 @@ export interface RandomEvent {
 export interface GameState {
   language: Language;
   phase: GamePhase;
+  sceneMode: 'inn' | 'trail';
+  routeIndex: number;
+  ambientTemp: number;
   currentLandmarkIndex: number;
   progress: number;
   weather: WeatherType;
