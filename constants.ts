@@ -1,5 +1,5 @@
 
-import { Landmark, WeatherType, PlayerStatus, InventoryItem, GameState, Language, Season, Achievement, RandomEvent, QuizQuestion } from './types';
+import { Landmark, WeatherType, PlayerStatus, InventoryItem, GameState, Language, Season, Achievement, RandomEvent, QuizQuestion, ItemCategory } from './types';
 
 export const ACHIEVEMENTS: Achievement[] = [
   { id: 'a1', name: { zh: '敬畏自然', en: 'Respect Nature' }, description: { zh: '成功完成穿越，明白禁区的危险', en: 'Finish the trail' }, unlocked: false, category: 'exploration', icon: '🛡️' },
