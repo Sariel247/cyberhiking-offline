@@ -944,7 +944,7 @@ const App: React.FC = () => {
     return <GameOverModal gameState={gameState} t={t} landmarks={LANDMARKS} onResetToHome={resetToHome} />;
   }
   if (gameState.phase === 'hiking') {
-    return <OfficialGameplay gameState={gameState} sceneMode={gameState.sceneMode || 'inn'} currentEvent={currentEvent} eventImage={currentEventImage} onEventChoice={handleSceneEventChoice} onAdvance={handleSceneAdvance} onQuickAction={handleQuickAction} onUseItem={handleUseItem} onAbandon={resetToHome} onReturnHome={() => setGameState(p => ({ ...p, phase: 'landing' }))} />;
+    return <OfficialGameplay gameState={gameState} sceneMode={gameState.sceneMode || 'inn'} currentEvent={currentEvent} eventImage={currentEventImage} onEventChoice={handleSceneEventChoice} onAdvance={handleSceneAdvance} onEnterInn={() => setGameState(p => ({ ...p, sceneMode: 'inn' }))} onQuickAction={handleQuickAction} onUseItem={handleUseItem} onAbandon={resetToHome} onReturnHome={() => setGameState(p => ({ ...p, phase: 'landing' }))} />;
   }
 
 };
