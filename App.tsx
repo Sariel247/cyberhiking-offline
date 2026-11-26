@@ -38,7 +38,7 @@ const SCRIPTED_BOAR_EVENT: RandomEvent = {
 
 const SEARCH_ROOTS_EVENT: RandomEvent = {
   id: 'search_roots',
-  title: { zh: '发现可食用草根', en: 'Edible Wild Roots' },
+  title: { zh: '搜寻物资', en: 'Foraging' },
   description: { zh: '你在附近找到了一些草根，略带水分，味道苦涩。', en: 'You find some grass roots nearby, slightly moist and bitter-tasting.' },
   choices: [
     { text: { zh: '立即食用', en: 'Eat now' }, log: { zh: '草根的味道并不好，但至少暂时缓解了饥饿。', en: 'The roots taste rough, but ease your hunger.' }, healthImpact: 0, staminaImpact: 0, meritImpact: 0, energyImpact: 15, hydrationImpact: 3 },
