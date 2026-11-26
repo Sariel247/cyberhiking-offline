@@ -2,6 +2,7 @@
 export enum WeatherType {
   CLEAR = '晴朗',
   OVERCAST = '阴',
+  BREEZE = '微风',
   HAIL = '冰雹',
   FOGGY = '浓雾',
   RAINY = '雷雨',
