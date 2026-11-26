@@ -880,8 +880,6 @@ const App: React.FC = () => {
     setCurrentEventImage(null);
   };
 
-  if (gameState.phase === 'intro') return <IntroSequence onComplete={() => setGameState(p => ({ ...p, phase: 'hiking' }))} />;
-
   if (gameState.phase === 'landing') {
     return (
       <>
@@ -937,6 +935,112 @@ const App: React.FC = () => {
     return <OfficialGameplay gameState={gameState} sceneMode={gameState.sceneMode || 'inn'} currentEvent={currentEvent} eventImage={currentEventImage} onEventChoice={handleSceneEventChoice} onAdvance={handleSceneAdvance} onEnterInn={() => setGameState(p => ({ ...p, sceneMode: 'inn' }))} onQuickAction={handleQuickAction} onUseItem={handleUseItem} onAbandon={resetToHome} onReturnHome={() => setGameState(p => ({ ...p, phase: 'landing' }))} />;
   }
 
+};
+
+
+const translations: any = {
+  zh: {
+    start: '开启征途',
+    prepare: '物资筹备',
+    intro: '穿越禁令',
+    back: '返回首页',
+    shopping: '量子补给站',
+    load: '当前负重',
+    add: '购买',
+    reset: '清空',
+    depart: '踏入无人区',
+    log: '生存记录',
+    biometrics: '生命体征',
+    inventory: '行囊存储',
+    landmark: '所在坐标',
+    weather: '气象中枢',
+    day: '第 {d} 天',
+    health: '生命指数',
+    stamina: '动力储备',
+    temp: '核心体温',
+    proceed: '推进路程',
+    progressLabel: '路段推进',
+    progressHint: '到 3/3 将抵达下一地标',
+    rest: '原地休息',
+    camp: '扎营驻守',
+    sleep: '深度睡眠',
+    packup: '拔营',
+    checkin: '数字签到',
+    achievements: '成就系统',
+    achievementList: '荣耀殿堂 (成就)',
+    restDesc: '小憩 (体力+20)',
+    failed: '山神收割灵魂',
+    success: '活着离开了圣山',
+    reboot: '重新进入',
+    empty: '行囊空空...',
+    gold: '点数',
+    cart: '交易清单',
+    cost: '总计',
+    explore: '搜寻周边',
+    guide: '求助向导',
+    noHeadlamp: '夜晚光线不足，极其危险！',
+    warning: '【圣山禁地】鳌太线为自然保护区禁区。秦岭山神的领地，非许可严禁涉足。此处已夺58条人命。山不测，人不寿。',
+    background: '你翻越了围栏，踏入了圣山的禁地。现在，秦岭将审判你的每一步。',
+    deathReason: {
+      health: '秦岭吞没了你。你成了这座圣山永恒的子民。',
+      stamina: '体力耗尽的那一刻，你跪倒在乱石之中。山神见证了你的最后呼吸。',
+      bodyTemp: '极寒如刀刃剖开你的灵魂。你在白色的永恒中沉睡了。',
+      hydration: '干渴是最温柔的死法。你在幻觉中微笑着闭上了眼。'
+    },
+    categories: { food: '食物', water: '水源', gear: '装备', med: '医疗' },
+    seasons: { [Season.SPRING]: '春季', [Season.SUMMER]: '夏季', [Season.AUTUMN]: '秋季', [Season.WINTER]: '冬季' }
+  },
+  en: {
+    start: 'Start',
+    prepare: 'Supply Prep',
+    intro: 'Entry Ban',
+    back: 'Back',
+    shopping: 'Quantum Depot',
+    load: 'Weight',
+    add: 'Buy',
+    reset: 'Clear',
+    depart: 'Enter Zone',
+    log: 'Survival Log',
+    biometrics: 'Vitals',
+    inventory: 'Storage',
+    landmark: 'Coords',
+    weather: 'Weather',
+    day: 'Day {d}',
+    health: 'Life',
+    stamina: 'Stamina',
+    temp: 'Body Temp',
+    proceed: 'Advance',
+    progressLabel: 'Segment progress',
+    progressHint: 'Reach 3/3 to move to the next landmark',
+    rest: 'Rest',
+    camp: 'Camp',
+    sleep: 'Sleep',
+    packup: 'Pack Up',
+    checkin: 'Check-in',
+    achievements: 'Achievements',
+    achievementList: 'Hall of Fame',
+    restDesc: 'Brief respite (+20 Stamina)',
+    failed: 'CONSUMED BY SACRED MOUNTAIN',
+    success: 'BLESSED & RETURNED',
+    reboot: 'Reboot',
+    empty: 'Empty...',
+    gold: 'Credits',
+    cart: 'Cart',
+    cost: 'Total',
+    explore: 'Explore',
+    guide: 'Ask Guide',
+    noHeadlamp: 'Night falls upon the Sacred Mountain. Darkness here devours the unprepared!',
+    warning: '【SACRED FORBIDDEN ZONE】The Aotai Trail is the inner sanctum of the Sacred Mountain. Entry without permission is strictly forbidden. 58+ have perished here. The mountain judges all trespassers.',
+    background: 'You crossed the barrier into the Sacred Mountain\'s forbidden realm. Every step is now judged by eternity.',
+    deathReason: {
+      health: 'The Sacred Mountain absorbed your body. You are now eternal.',
+      stamina: 'You collapsed between ancient stones. The mountain witnessed your last breath.',
+      bodyTemp: 'Hypothermia became your gateway. You sleep in endless white.',
+      hydration: 'Thirst gave you the gentlest death. You smiled as darkness took you.'
+    },
+    categories: { food: 'Food', water: 'Water', gear: 'Gear', med: 'Meds' },
+    seasons: { [Season.SPRING]: 'Spring', [Season.SUMMER]: 'Summer', [Season.AUTUMN]: 'Autumn', [Season.WINTER]: 'Winter' }
+  }
 };
 
 export default App;
