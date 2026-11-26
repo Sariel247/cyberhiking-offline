@@ -12,3 +12,5 @@
 @keyframes rainFall{from{background-position:0 -30px}to{background-position:0 30px}}
 @keyframes mistDrift{0%,100%{transform:translateX(-4%);opacity:.15}50%{transform:translateX(4%);opacity:.4}}
 .minimal-graphics .weather-particles{display:none}
+
+.route-map-scroll{mask-image:linear-gradient(to right,transparent 0,#000 22px,#000 calc(100% - 22px),transparent 100%);-webkit-mask-image:linear-gradient(to right,transparent 0,#000 22px,#000 calc(100% - 22px),transparent 100%)}
