@@ -53,6 +53,7 @@ const loadGameState=():GameState=>{
  try{const raw=localStorage.getItem(SAVE_KEY);if(!raw){const legacy=localStorage.getItem('cyberHike_achievements');const ids:string[]=legacy?JSON.parse(legacy):[];return {...base,achievements:base.achievements.map(a=>({...a,unlocked:ids.includes(a.id)}))}}
  const saved=JSON.parse(raw) as Partial<GameState>;const catalog=new Map([...SHOP_ITEMS,DIARY_ITEM,ROOT_ITEM].map(i=>[i.id,i]));
  const inventory=Array.isArray(saved.inventory)?saved.inventory.map((v:any)=>{const item=catalog.get(v.id);return item?{...item,...v,effect:item.effect}:v}):base.inventory;
+ if(!inventory.some((i:any)=>i.id==='diary')) inventory.push({...DIARY_ITEM});
  const achievements=base.achievements.map(a=>({...a,unlocked:saved.achievements?.find(v=>v.id===a.id)?.unlocked??a.unlocked}));
  return {...base,...saved,status:{...base.status,...(saved.status||{})},inventory,achievements} as GameState;
  }catch{return base}
@@ -920,7 +921,6 @@ const App: React.FC = () => {
           showAchievements={showAchievements}
           showQuiz={showQuiz}
           t={t}
-          onSeasonChange={(season) => setGameState(p => ({ ...p, season }))}
           onStartShopping={() => setGameState(p => ({ ...p, phase: 'startpoint' }))}
           onContinue={() => setGameState(p => ({ ...p, phase: 'hiking' }))}
           onShowAchievements={setShowAchievements}
