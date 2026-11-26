@@ -19,20 +19,10 @@ const LOG_LIMIT = 50;
 const SCRIPTED_MISSING_EVENT: RandomEvent = {
   id: 'script_missing_notice',
   title: { zh: '寻人启事', en: 'Missing Person Notice' },
-  description: { zh: '公告栏上贴着一张被雨水浸皱的寻人启事。照片中的年轻人已经失联数月，下面的联系电话被风吹得模糊不清。你停下脚步，仔细看了看那张脸。', en: 'A rain-wrinkled missing-person notice is pinned to the board. The young hiker in the photo has been missing for months.' },
+  description: { zh: '正当你准备出发时，塘口路边的公告栏上，钉着一张寻人启事。照片上是一个笑容灿烂的年轻驴友，下面写着：「远山，28岁，于一周前在鳌太线失联。提供有效线索者，家属愿酬谢现金30000元。」', en: 'As you prepare to set off, a missing-person notice is pinned to the bulletin board by the Tangkou roadside. The photo shows a smiling young hiker: Yuan Shan, 28, missing on the Aotai Trail one week ago. The family offers a 30,000-yuan reward for useful leads.' },
   choices: [
-    { text: { zh: '拍下照片，记下线索（需要照相机）', en: 'Photograph the notice (Camera required)' }, log: { zh: '你拍下了寻人启事，希望这条线索能在未来派上用场。', en: 'You photograph the notice and keep the clue.' }, healthImpact: 0, staminaImpact: -1, meritImpact: 10, requiredItems: [{ itemId: 'g24', quantity: 1 }] },
-    { text: { zh: '匆匆路过', en: 'Pass by' }, log: { zh: '你没有停留太久。那张照片却在脑海里留下了影子。', en: 'You move on, but the face lingers in your mind.' }, healthImpact: 0, staminaImpact: 0, meritImpact: -5 }
-  ]
-};
-const SCRIPTED_BOAR_EVENT: RandomEvent = {
-  id: 'script_injured_boar',
-  title: { zh: '受伤的野猪', en: 'Injured Wild Boar' },
-  description: { zh: '路边的灌木丛里传来沉闷的喘息声。一只野猪倒在湿冷的落叶间，后腿有一道明显的伤口。它警惕地盯着你，随时可能挣扎起身。', en: 'A wounded wild boar lies among wet leaves, watching you warily.' },
-  choices: [
-    { text: { zh: '保持距离，使用医疗物资处理伤口（需要医疗包）', en: 'Treat from a safe distance (Medical kit required)' }, log: { zh: '你没有贸然靠近，而是谨慎地处理伤口附近的情况，随后慢慢离开。', en: 'You keep a safe distance, help where possible, then leave.' }, healthImpact: 0, staminaImpact: -3, meritImpact: 15, requiredItems: [{ itemId: 'm1', quantity: 1 }] },
-    { text: { zh: '放下一份食物后离开（需要食物）', en: 'Leave food and move on (Food required)' }, log: { zh: '你把食物放在远处，等野猪注意到食物后便退回山路。', en: 'You leave food at a distance and retreat.' }, healthImpact: 0, staminaImpact: -2, meritImpact: 8, requiredItems: [{ itemId: 'f1', quantity: 1 }] },
-    { text: { zh: '不靠近它，绕路离开', en: 'Keep away and walk around' }, log: { zh: '你绕开了灌木丛，没有惊扰这只受伤的野猪。', en: 'You give the animal space and take another path.' }, healthImpact: 0, staminaImpact: -1, meritImpact: 3 }
+    { text: { zh: '拍下照片备用', en: 'Take a photo for reference' }, log: { zh: '你拍下了寻人启事，留作之后查找线索。', en: 'You photograph the notice and keep it as a clue.' }, healthImpact: 0, staminaImpact: -1, meritImpact: 10, requiredItems: [{ itemId: 'g24', quantity: 1 }] },
+    { text: { zh: '匆匆路过', en: 'Pass by' }, log: { zh: '你扫了一眼，没有太在意。毕竟在鳌太线上，每个人都自顾不暇。', en: 'You glance at it without much concern. On the Aotai Trail, everyone is struggling to take care of themselves.' }, healthImpact: 0, staminaImpact: 0, meritImpact: -5 }
   ]
 };
 const SEARCH_ROOTS_EVENT: RandomEvent = {
@@ -809,8 +799,7 @@ const App: React.FC = () => {
     if (eventId) {
       setGameState(p => {
         const triggered = p.triggeredEvents.includes(eventId) ? p.triggeredEvents : [...p.triggeredEvents, eventId];
-        const routeIndex = eventId === 'script_injured_boar' ? Math.max(1, p.routeIndex || 0) : (p.routeIndex || 0);
-        return { ...p, triggeredEvents: triggered, routeIndex, currentLandmarkIndex: eventId === 'script_injured_boar' ? 1 : p.currentLandmarkIndex };
+        return { ...p, triggeredEvents: triggered };
       });
     }
     setCurrentEventImage(null);
@@ -827,12 +816,6 @@ const App: React.FC = () => {
       setCurrentEvent(SCRIPTED_MISSING_EVENT);
       setCurrentEventImage('https://d2oyd22xy9utpf.cloudfront.net/images/events/missing_person.webp');
       setGameState(p => ({ ...p, time: p.time + 0.25, status: { ...nextStatus, weight: calculateWeight(p.inventory) } }));
-      return;
-    }
-    if (!triggered.includes('script_injured_boar')) {
-      setCurrentEvent(SCRIPTED_BOAR_EVENT);
-      setCurrentEventImage(null);
-      setGameState(p => ({ ...p, time: p.time + 0.35, status: { ...nextStatus, weight: calculateWeight(p.inventory) } }));
       return;
     }
     const nextIndex = Math.min(40, (gameState.routeIndex || 0) + 1);
