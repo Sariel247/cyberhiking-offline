@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { LANDMARKS, INITIAL_GAME_STATE, SHOP_ITEMS, INITIAL_STATUS, ACHIEVEMENTS, LOCAL_EVENTS, QUIZ_QUESTIONS } from './constants';
+import { LANDMARKS, INITIAL_GAME_STATE, SHOP_ITEMS, INITIAL_STATUS, ACHIEVEMENTS, LOCAL_EVENTS, QUIZ_QUESTIONS, DIARY_ITEM, ROOT_ITEM } from './constants';
 import { GameState, WeatherType, PlayerStatus, Landmark, InventoryItem, RouteOption, Language, Season, ItemCategory, Achievement, RandomEvent, EventChoice } from './types';
 import { generateNarrative, getSurvivalAdvice } from './services/geminiService';
 import StatusBar from './components/StatusBar';
@@ -11,15 +11,47 @@ import QuizModal from './components/QuizModal';
 import ShoppingPage from './components/ShoppingPage';
 import GameOverModal from './components/GameOverModal';
 import IntroSequence from './components/IntroSequence';
+import { StartPointModal, StoryScreen, OfficialShop, OfficialGameplay } from './components/ReplicaUI';
 import { useGameLogic } from './hooks/useGameLogic';
 import { useQuiz } from './hooks/useQuiz';
 
 const LOG_LIMIT = 50;
+const SCRIPTED_MISSING_EVENT: RandomEvent = {
+  id: 'script_missing_notice',
+  title: { zh: '寻人启事', en: 'Missing Person Notice' },
+  description: { zh: '公告栏上贴着一张被雨水浸皱的寻人启事。照片中的年轻人已经失联数月，下面的联系电话被风吹得模糊不清。你停下脚步，仔细看了看那张脸。', en: 'A rain-wrinkled missing-person notice is pinned to the board. The young hiker in the photo has been missing for months.' },
+  choices: [
+    { text: { zh: '拍下照片，记下线索（需要照相机）', en: 'Photograph the notice (Camera required)' }, log: { zh: '你拍下了寻人启事，希望这条线索能在未来派上用场。', en: 'You photograph the notice and keep the clue.' }, healthImpact: 0, staminaImpact: -1, meritImpact: 10, requiredItems: [{ itemId: 'g24', quantity: 1 }] },
+    { text: { zh: '匆匆路过', en: 'Pass by' }, log: { zh: '你没有停留太久。那张照片却在脑海里留下了影子。', en: 'You move on, but the face lingers in your mind.' }, healthImpact: 0, staminaImpact: 0, meritImpact: -5 }
+  ]
+};
+const SCRIPTED_BOAR_EVENT: RandomEvent = {
+  id: 'script_injured_boar',
+  title: { zh: '受伤的野猪', en: 'Injured Wild Boar' },
+  description: { zh: '路边的灌木丛里传来沉闷的喘息声。一只野猪倒在湿冷的落叶间，后腿有一道明显的伤口。它警惕地盯着你，随时可能挣扎起身。', en: 'A wounded wild boar lies among wet leaves, watching you warily.' },
+  choices: [
+    { text: { zh: '保持距离，使用医疗物资处理伤口（需要医疗包）', en: 'Treat from a safe distance (Medical kit required)' }, log: { zh: '你没有贸然靠近，而是谨慎地处理伤口附近的情况，随后慢慢离开。', en: 'You keep a safe distance, help where possible, then leave.' }, healthImpact: 0, staminaImpact: -3, meritImpact: 15, requiredItems: [{ itemId: 'm1', quantity: 1 }] },
+    { text: { zh: '放下一份食物后离开（需要食物）', en: 'Leave food and move on (Food required)' }, log: { zh: '你把食物放在远处，等野猪注意到食物后便退回山路。', en: 'You leave food at a distance and retreat.' }, healthImpact: 0, staminaImpact: -2, meritImpact: 8, requiredItems: [{ itemId: 'f1', quantity: 1 }] },
+    { text: { zh: '不靠近它，绕路离开', en: 'Keep away and walk around' }, log: { zh: '你绕开了灌木丛，没有惊扰这只受伤的野猪。', en: 'You give the animal space and take another path.' }, healthImpact: 0, staminaImpact: -1, meritImpact: 3 }
+  ]
+};
+const SEARCH_ROOTS_EVENT: RandomEvent = {
+  id: 'search_roots',
+  title: { zh: '发现可食用草根', en: 'Edible Wild Roots' },
+  description: { zh: '你在潮湿的石缝边找到一些根茎。它们看起来可以暂时充饥，但你仍需要谨慎判断。', en: 'You find a few roots near a damp rock crevice. They may help with hunger, but be cautious.' },
+  choices: [
+    { text: { zh: '立即食用', en: 'Eat now' }, log: { zh: '草根的味道并不好，但至少暂时缓解了饥饿。', en: 'The roots taste rough, but ease your hunger.' }, healthImpact: 0, staminaImpact: 0, meritImpact: 0, energyImpact: 15, hydrationImpact: 3 },
+    { text: { zh: '放入背包', en: 'Put them in the backpack' }, log: { zh: '你把草根收进背包，留作之后的补给。', en: 'You store the roots for later.' }, healthImpact: 0, staminaImpact: 0, meritImpact: 0, rewardItems: [{ itemId: 'roots', quantity: 1 }] },
+    { text: { zh: '不确定能否食用，放弃', en: 'Leave them' }, log: { zh: '你没有冒险食用来历不明的植物。', en: 'You decide not to eat an unfamiliar plant.' }, healthImpact: 0, staminaImpact: 0, meritImpact: 2 }
+  ]
+};
+
+
 const SAVE_KEY='cyberHike_offline_save_v1';
 const loadGameState=():GameState=>{
  const base:GameState={...INITIAL_GAME_STATE,status:{...INITIAL_GAME_STATE.status,conditions:[...INITIAL_GAME_STATE.status.conditions]},inventory:INITIAL_GAME_STATE.inventory.map(i=>({...i})),achievements:INITIAL_GAME_STATE.achievements.map(a=>({...a}))};
  try{const raw=localStorage.getItem(SAVE_KEY);if(!raw){const legacy=localStorage.getItem('cyberHike_achievements');const ids:string[]=legacy?JSON.parse(legacy):[];return {...base,achievements:base.achievements.map(a=>({...a,unlocked:ids.includes(a.id)}))}}
- const saved=JSON.parse(raw) as Partial<GameState>;const catalog=new Map(SHOP_ITEMS.map(i=>[i.id,i]));
+ const saved=JSON.parse(raw) as Partial<GameState>;const catalog=new Map([...SHOP_ITEMS,DIARY_ITEM,ROOT_ITEM].map(i=>[i.id,i]));
  const inventory=Array.isArray(saved.inventory)?saved.inventory.map((v:any)=>{const item=catalog.get(v.id);return item?{...item,...v,effect:item.effect}:v}):base.inventory;
  const achievements=base.achievements.map(a=>({...a,unlocked:saved.achievements?.find(v=>v.id===a.id)?.unlocked??a.unlocked}));
  return {...base,...saved,status:{...base.status,...(saved.status||{})},inventory,achievements} as GameState;
@@ -31,7 +63,8 @@ const App: React.FC = () => {
   const [currentEvent, setCurrentEvent] = useState<RandomEvent | null>(null);
   const [showAchievements, setShowAchievements] = useState(false);
   const [activeShopCategory, setActiveShopCategory] = useState<ItemCategory>('core');
-  const [shoppingCart, setShoppingCart] = useState<{ [key: string]: number }>({});
+  const [shoppingCart, setShoppingCart] = useState<{ [key: string]: number }>({ pack65: 1 });
+  const [currentEventImage, setCurrentEventImage] = useState<string | null>(null);
   const [guideLoading, setGuideLoading] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
 
@@ -122,6 +155,8 @@ const App: React.FC = () => {
 
     let tempLoss = 0.2;
     if (weather === WeatherType.BLIZZARD) tempLoss = 3.8;
+    else if (weather === WeatherType.HAIL) tempLoss = 1.5;
+    else if (weather === WeatherType.OVERCAST) tempLoss = 0.3;
     else if (weather === WeatherType.SNOWY) tempLoss = 2.0;
     else if (weather === WeatherType.RAINY) tempLoss = 1.0;
     else if (weather === WeatherType.FOGGY) tempLoss = 0.6;
@@ -580,12 +615,16 @@ const App: React.FC = () => {
 
   const updateCart = (id: string, delta: number) => {
     setShoppingCart(prev => {
+      const packIds = ['pack45','pack65','pack85','pack100'];
+      if (packIds.includes(id) && delta > 0) {
+        const next = { ...prev };
+        packIds.forEach(pack => delete next[pack]);
+        next[id] = 1;
+        return next;
+      }
       const current = prev[id] || 0;
       const next = Math.max(0, current + delta);
-      if (next === 0) {
-        const { [id]: _, ...rest } = prev;
-        return rest;
-      }
+      if (next === 0) { const { [id]: _, ...rest } = prev; return rest; }
       return { ...prev, [id]: next };
     });
   };
@@ -744,13 +783,88 @@ const App: React.FC = () => {
 
     setGameState(p => ({ 
       ...p, 
-      phase: 'intro', 
+      phase: 'hiking',
+      sceneMode: 'inn',
+      routeIndex: 0,
+      ambientTemp: 2,
+      weather: WeatherType.OVERCAST,
+      time: 8,
+      day: 1,
+      progress: 0,
+      triggeredEvents: [],
       gold: p.gold - cost, 
       inventory: autoEquippedInventory, 
       startWeight: weight, 
       status: { ...equippedStatus, weight, maxWeight }, 
       log: storyLogs
     }));
+    setCurrentEvent(null);
+    setCurrentEventImage(null);
+  };
+
+  const handleSceneEventChoice = (choice: EventChoice) => {
+    const eventId = currentEvent?.id;
+    handleEventChoice(choice);
+    if (eventId) {
+      setGameState(p => {
+        const triggered = p.triggeredEvents.includes(eventId) ? p.triggeredEvents : [...p.triggeredEvents, eventId];
+        const routeIndex = eventId === 'script_injured_boar' ? Math.max(1, p.routeIndex || 0) : (p.routeIndex || 0);
+        return { ...p, triggeredEvents: triggered, routeIndex, currentLandmarkIndex: eventId === 'script_injured_boar' ? 1 : p.currentLandmarkIndex };
+      });
+    }
+    setCurrentEventImage(null);
+  };
+
+  const handleSceneAdvance = () => {
+    if (gameState.sceneMode === 'inn') {
+      setGameState(p => ({ ...p, sceneMode: 'trail', time: p.time + 0.15, ambientTemp: 3, log: [...p.log, '[SCENE] 离开驴友之家，来到塘口山道。'].slice(-LOG_LIMIT) }));
+      return;
+    }
+    const triggered = gameState.triggeredEvents;
+    const nextStatus = updateStatus(gameState.status, gameState.weather, 0.25, 'active');
+    if (!triggered.includes('script_missing_notice')) {
+      setCurrentEvent(SCRIPTED_MISSING_EVENT);
+      setCurrentEventImage('https://d2oyd22xy9utpf.cloudfront.net/images/events/missing_person.webp');
+      setGameState(p => ({ ...p, time: p.time + 0.25, status: { ...nextStatus, weight: calculateWeight(p.inventory) } }));
+      return;
+    }
+    if (!triggered.includes('script_injured_boar')) {
+      setCurrentEvent(SCRIPTED_BOAR_EVENT);
+      setCurrentEventImage(null);
+      setGameState(p => ({ ...p, time: p.time + 0.35, status: { ...nextStatus, weight: calculateWeight(p.inventory) } }));
+      return;
+    }
+    const nextIndex = Math.min(40, (gameState.routeIndex || 0) + 1);
+    const nextTimeRaw = gameState.time + 0.35;
+    const nextDay = gameState.day + Math.floor(nextTimeRaw / 24);
+    const nextTime = nextTimeRaw % 24;
+    const weatherOptions = Object.values(WeatherType);
+    const nextWeather = Math.random() < 0.18 ? weatherOptions[Math.floor(Math.random() * weatherOptions.length)] : gameState.weather;
+    const nextLandmark = Math.min(LANDMARKS.length - 1, Math.floor(nextIndex / 40 * (LANDMARKS.length - 1)));
+    setGameState(p => ({
+      ...p, routeIndex: nextIndex, currentLandmarkIndex: nextLandmark, time: nextTime, day: nextDay,
+      weather: nextWeather, ambientTemp: Math.max(-12, Math.min(12, 4 - Math.floor(nextIndex / 5) + Math.round((Math.random() - 0.5) * 4))),
+      status: { ...nextStatus, weight: calculateWeight(p.inventory) },
+      phase: nextIndex >= 40 ? 'gameover' : p.phase,
+      gameMessage: nextIndex >= 40 ? { zh: '你终于抵达南塬村。山路在身后渐渐隐入雾中，你带着疲惫与记忆，平安走出了这段旅程。', en: 'You reach Nanyuan Village and make it safely through the journey.' } : p.gameMessage
+    }));
+    if (nextIndex < 40 && Math.random() < 0.28) {
+      const event = selectWeightedEvent();
+      setCurrentEvent(event);
+      setCurrentEventImage(null);
+      setGameState(p => ({ ...p, triggeredEvents: p.triggeredEvents.includes(event.id) ? p.triggeredEvents : [...p.triggeredEvents, event.id] }));
+    }
+  };
+
+  const handleQuickAction = (action: 'exercise' | 'search' | 'rest') => {
+    const hours = action === 'exercise' ? 0.12 : action === 'search' ? 0.18 : 0.3;
+    const mode = action === 'rest' ? 'passive' : 'active';
+    const next = updateStatus(gameState.status, gameState.weather, hours, mode);
+    if (action === 'exercise') next.bodyTemp = Math.min(37.2, next.bodyTemp + 0.15);
+    if (action === 'rest') { next.stamina = Math.min(100, next.stamina + 12); next.health = Math.min(100, next.health + 2); }
+    const raw = gameState.time + hours;
+    setGameState(p => ({ ...p, time: raw % 24, day: p.day + Math.floor(raw / 24), status: { ...next, weight: calculateWeight(p.inventory) }, log: [...p.log, action === 'exercise' ? '[ACTION] 原地活动，尝试保持体温。' : action === 'search' ? '[ACTION] 搜寻附近的物资。' : '[ACTION] 原地休息，恢复体能。'].slice(-LOG_LIMIT) }));
+    if (action === 'search') { setCurrentEvent(SEARCH_ROOTS_EVENT); setCurrentEventImage(null); }
   };
 
   const triggerLandmarkStory = useCallback((landmarkIndex: number) => {
@@ -769,10 +883,10 @@ const App: React.FC = () => {
   }, [gameState.language]);
 
   const resetToHome = () => {
-    setGameState(p => ({
-      ...INITIAL_GAME_STATE,
-      achievements: p.achievements // 保留已解锁成就
-    }));
+    setGameState(p => ({ ...INITIAL_GAME_STATE, achievements: p.achievements }));
+    setShoppingCart({ pack65: 1 });
+    setCurrentEvent(null);
+    setCurrentEventImage(null);
   };
 
   if (gameState.phase === 'intro') return <IntroSequence onComplete={() => setGameState(p => ({ ...p, phase: 'hiking' }))} />;
@@ -807,7 +921,8 @@ const App: React.FC = () => {
           showQuiz={showQuiz}
           t={t}
           onSeasonChange={(season) => setGameState(p => ({ ...p, season }))}
-          onStartShopping={() => setGameState(p => ({ ...p, phase: 'shopping' }))}
+          onStartShopping={() => setGameState(p => ({ ...p, phase: 'startpoint' }))}
+          onContinue={() => setGameState(p => ({ ...p, phase: 'hiking' }))}
           onShowAchievements={setShowAchievements}
           onShowQuiz={handleStartQuiz}
           translations={translations}
@@ -816,382 +931,22 @@ const App: React.FC = () => {
     );
   }
 
+  if (gameState.phase === 'startpoint') {
+    return <StartPointModal onCancel={() => setGameState(p => ({ ...p, phase: 'landing' }))} onConfirm={() => setGameState(p => ({ ...p, phase: 'story' }))} />;
+  }
+  if (gameState.phase === 'story' || gameState.phase === 'intro') {
+    return <StoryScreen onBack={() => setGameState(p => ({ ...p, phase: 'startpoint' }))} onContinue={() => setGameState(p => ({ ...p, phase: 'shopping' }))} />;
+  }
   if (gameState.phase === 'shopping') {
-    const cartEntries = Object.entries(shoppingCart) as [string, number][];
-    const cost = cartEntries.reduce((acc, [id, q]) => acc + (SHOP_ITEMS.find(i => i.id === id)?.cost || 0) * q, 0);
-    const initialInvWeight = gameState.inventory.reduce((acc, i) => acc + (i.weight * i.quantity), 0);
-    const cartBackpackId=cartEntries.map(([id])=>id).filter(id=>['pack45','pack65','pack85','pack100'].includes(id)).slice(-1)[0];
-    const weightBaseInventory=cartBackpackId?gameState.inventory.filter(item=>!['pack45','pack65','pack85','pack100'].includes(item.id)):gameState.inventory;
-    const weight=cartEntries.reduce((acc,[id,q])=>acc+(SHOP_ITEMS.find(i=>i.id===id)?.weight||0)*q,0)+weightBaseInventory.reduce((acc,item)=>acc+item.weight*item.quantity,0);
-    const currentBackpackId=cartBackpackId||gameState.inventory.find(item=>['pack45','pack65','pack85','pack100'].includes(item.id))?.id||'pack65';
-    const maxWeight=({pack45:15,pack65:25,pack85:40,pack100:50} as Record<string,number>)[currentBackpackId]||25;
-    
-    return (
-      <div className="h-screen w-full bg-slate-950 flex flex-col font-sans hardware-accel overflow-hidden">
-        <header className="flex-none px-6 py-4 md:py-6 border-b border-white/5 bg-slate-950/80 backdrop-blur-md z-20">
-          <div className="flex flex-col md:flex-row justify-between items-center md:items-end gap-4 md:gap-0">
-            <div>
-              <h2 className="text-2xl md:text-3xl font-black text-white italic uppercase tracking-tighter text-center md:text-left">{t.shopping}</h2>
-              <div className="flex gap-4 md:gap-6 mt-1 justify-center md:justify-start">
-                <span className="text-amber-500 font-bold text-xs tracking-widest uppercase">🪙 {gameState.gold} CREDITS</span>
-                <span className={`text-xs font-bold tracking-widest uppercase ${weight > 22 ? 'text-red-500 animate-pulse' : 'text-sky-400'}`}>🎒 {weight.toFixed(1)}/{maxWeight}kg</span>
-              </div>
-            </div>
-            <button onClick={() => setGameState(p => ({ ...p, phase: 'landing' }))} className="px-4 py-2 border border-white/10 rounded-xl text-slate-500 text-[10px] font-bold uppercase hover:text-slate-300 transition-colors">{t.back}</button>
-          </div>
-        </header>
-
-        <main className="flex-grow flex flex-col md:flex-row overflow-hidden relative">
-          <section className="flex-grow flex flex-col overflow-hidden p-4 md:p-6 gap-4">
-            <nav className="flex-none flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-              {Object.keys(t.categories).map(cat => (
-                <button 
-                  key={cat} 
-                  onClick={() => setActiveShopCategory(cat as ItemCategory)} 
-                  className={`flex-none px-4 md:px-5 py-2 rounded-xl text-[10px] font-black border transition-all uppercase whitespace-nowrap ${activeShopCategory === cat ? 'bg-sky-500 text-black border-sky-400' : 'bg-slate-900 border-white/5 text-slate-500'}`}
-                >
-                  {(t.categories as any)[cat]}
-                </button>
-              ))}
-            </nav>
-            <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar">
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                {SHOP_ITEMS.filter(i => i.type === activeShopCategory).map(item => (
-                  <div key={item.id} className="bg-slate-900/40 border border-white/5 p-4 rounded-2xl flex flex-col justify-between hover:border-sky-500/40 transition-colors group">
-                    <div>
-                      <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase mb-2">
-                        <span className="group-hover:text-slate-300">{item.weight}KG</span>
-                        <span className="text-amber-500">{item.cost}🪙</span>
-                      </div>
-                      <h3 className="text-sm font-black text-white mb-1 group-hover:text-sky-400 transition-colors">{item.name[gameState.language]}</h3>
-                      <p className="text-[10px] text-slate-500 leading-tight italic">{item.description[gameState.language]}</p>
-                    </div>
-                    <div className="flex items-center gap-2 mt-4 bg-black/20 p-1 rounded-xl">
-                       <button onClick={() => updateCart(item.id, -1)} className="w-8 h-8 bg-slate-800 rounded-lg font-black text-xs hover:bg-slate-700 transition-colors">-</button>
-                       <span className="flex-grow text-center font-mono font-bold text-white">{shoppingCart[item.id] || 0}</span>
-                       <button 
-                         onClick={() => updateCart(item.id, 1)} 
-                         className="w-8 h-8 bg-slate-800 rounded-lg font-black text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                         disabled={!item.isConsumable && (shoppingCart[item.id] || 0) >= 1}
-                       >+</button>
-                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          <aside className="w-full md:w-80 flex-none cyber-panel border-t md:border-t-0 md:border-l border-white/5 bg-black/40 flex flex-col shadow-2xl relative z-10 max-h-[40vh] md:max-h-full">
-            <div className="flex-none p-4 md:p-6 border-b border-white/5">
-              <h3 className="text-xs font-black text-sky-400 uppercase tracking-widest italic">{t.cart}</h3>
-            </div>
-            <div className="flex-grow overflow-y-auto p-4 md:p-6 custom-scrollbar">
-              <div className="space-y-3">
-                {cartEntries.filter(([_, q]) => q > 0).length === 0 ? (
-                  <div className="text-center py-10 md:py-20 opacity-20 italic text-xs uppercase tracking-widest">{t.empty}</div>
-                ) : (
-                  cartEntries.map(([id, q]) => {
-                    const item = SHOP_ITEMS.find(i => i.id === id);
-                    if (!item || q <= 0) return null;
-                    return (
-                      <div key={id} className="flex justify-between items-center text-[10px] font-bold border-b border-white/5 pb-3 group">
-                        <div className="flex flex-col">
-                          <span className="text-slate-300 group-hover:text-sky-400 transition-colors truncate w-32 md:w-40">{item.name[gameState.language]}</span>
-                          <span className="text-[8px] text-slate-600 font-mono">{(item.weight * q).toFixed(1)}KG</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-sky-500 font-mono">x{q}</span>
-                          <button onClick={() => updateCart(id, -1)} className="text-slate-700 hover:text-red-500 transition-colors px-1">✕</button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-            <div className="flex-none p-4 md:p-6 bg-slate-900/60 border-t border-white/10 space-y-4">
-              <div className="flex justify-between items-end">
-                <span className="text-slate-500 text-[10px] font-bold uppercase">{t.cost}</span>
-                <span className={`text-xl md:text-2xl font-black ${cost > gameState.gold ? 'text-red-500' : 'text-amber-500'}`}>{cost}🪙</span>
-              </div>
-              <button 
-                onClick={startJourney} 
-                disabled={cost > gameState.gold || weight > 25 || (cost === 0 && cartEntries.length === 0)}
-                className="w-full py-4 bg-sky-600 text-white font-black rounded-2xl uppercase tracking-widest text-[10px] shadow-lg active:scale-95 disabled:grayscale disabled:opacity-30 disabled:active:scale-100 transition-all"
-              >
-                {t.depart}
-              </button>
-            </div>
-          </aside>
-        </main>
-      </div>
-    );
+    return <OfficialShop gameState={gameState} cart={shoppingCart} category={activeShopCategory} onCategory={setActiveShopCategory} onCart={updateCart} onStart={startJourney} onBack={() => setGameState(p => ({ ...p, phase: 'story' }))} />;
+  }
+  if (gameState.phase === 'gameover') {
+    return <GameOverModal gameState={gameState} t={t} landmarks={LANDMARKS} onResetToHome={resetToHome} />;
+  }
+  if (gameState.phase === 'hiking') {
+    return <OfficialGameplay gameState={gameState} sceneMode={gameState.sceneMode || 'inn'} currentEvent={currentEvent} eventImage={currentEventImage} onEventChoice={handleSceneEventChoice} onAdvance={handleSceneAdvance} onQuickAction={handleQuickAction} onUseItem={handleUseItem} onAbandon={resetToHome} onReturnHome={() => setGameState(p => ({ ...p, phase: 'landing' }))} />;
   }
 
-  return (
-    <div className={`h-screen w-full flex flex-col md:flex-row bg-slate-950 font-mono hardware-accel overflow-hidden ${isNight ? 'brightness-90' : ''}`}>
-      {currentEvent && <EventDialog event={currentEvent} language={gameState.language} inventory={gameState.inventory} onChoice={handleEventChoice} />}
-      
-      {showAchievements && (
-        <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6 hardware-accel animate-in fade-in duration-300">
-          <div className="max-w-2xl w-full cyber-panel p-8 rounded-[2rem] border border-sky-500/30 flex flex-col max-h-[85vh]">
-             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-black italic text-white uppercase tracking-tighter">🏆 {t.achievementList}</h2>
-                <button onClick={() => setShowAchievements(false)} className="text-slate-500 hover:text-white transition-colors">✕</button>
-             </div>
-             <div className="flex-grow overflow-y-auto custom-scrollbar pr-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {gameState.achievements.map(a => (
-                  <div key={a.id} className={`p-4 rounded-2xl border flex items-center gap-4 transition-all ${a.unlocked ? 'bg-sky-500/10 border-sky-500/40 opacity-100' : 'bg-slate-900/50 border-white/5 opacity-40'}`}>
-                    <span className="text-2xl">{a.icon}</span>
-                    <div className="min-w-0">
-                      <p className="text-xs font-black text-white uppercase truncate">{a.name[gameState.language]}</p>
-                      <p className="text-[10px] text-slate-500 leading-tight">{a.description[gameState.language]}</p>
-                    </div>
-                  </div>
-                ))}
-             </div>
-          </div>
-        </div>
-      )}
-
-      <div className="w-full md:w-80 p-5 flex flex-col gap-4 border-r border-white/5 bg-black/40 overflow-y-auto custom-scrollbar">
-        <div className="relative h-48 w-full rounded-2xl overflow-hidden shadow-2xl group border border-white/5">
-          <img src={currentLandmark.imageUrl} className="w-full h-full object-cover transition-transform duration-[10s] group-hover:scale-110" alt="landmark" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80" />
-          <div className="absolute bottom-4 left-4">
-             <p className="text-[10px] text-sky-400 font-bold uppercase tracking-widest mb-0.5">{t.landmark}</p>
-             <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">{currentLandmark.name[gameState.language]}</h3>
-             <p className="text-[10px] text-slate-400 font-bold">{currentLandmark.elevation}M ALTITUDE</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-           <button onClick={handleExplore} className="py-2.5 rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-500 font-black uppercase text-[10px] hover:bg-amber-500/20 transition-all">🔍 {t.explore}</button>
-           <button onClick={handleAskGuide} disabled={guideLoading} className={`py-2.5 rounded-xl border border-sky-500/20 bg-sky-500/10 text-sky-500 font-black uppercase text-[10px] hover:bg-sky-500/20 transition-all ${guideLoading ? 'animate-pulse' : ''}`}>🤖 {t.guide}</button>
-        </div>
-
-        <div className="cyber-panel p-5 rounded-2xl space-y-1">
-          <StatusBar label={t.health} value={gameState.status.health} max={100} color="bg-red-500" icon="❤️" />
-          <StatusBar label={t.stamina} value={gameState.status.stamina} max={100} color="bg-emerald-500" icon="⚡" />
-          <StatusBar label={t.temp} value={gameState.status.bodyTemp} max={40} unit="°C" color={gameState.status.bodyTemp < 36.5 ? 'bg-sky-500 shadow-[0_0_10px_rgba(56,189,248,0.3)]' : 'bg-orange-500'} icon="🌡️" />
-          
-          <div className="flex flex-wrap gap-1.5 pt-2">
-             {gameState.status.conditions.map(c => <span key={c} className="bg-red-500/20 text-red-500 px-2 py-0.5 rounded text-[8px] font-black border border-red-500/30 animate-pulse uppercase">{c}</span>)}
-          </div>
-        </div>
-
-        <div className="mt-auto pt-4 flex flex-col gap-2">
-           <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-white/5 pb-2">
-              <span>功德 (MERIT)</span>
-              <span className="text-sky-400 font-mono">{gameState.merit}</span>
-           </div>
-           <button onClick={() => setShowAchievements(true)} className="w-full py-2.5 rounded-xl border border-white/10 bg-slate-900/50 text-slate-400 font-black uppercase text-[10px] hover:text-white hover:border-sky-500/50 transition-all">🏆 {t.achievements}</button>
-        </div>
-      </div>
-
-      <div className="flex-grow flex flex-col p-5 gap-4 overflow-hidden border-r border-white/5">
-        <div className="flex justify-between items-center px-4 py-2 bg-slate-900/40 rounded-xl border border-white/5 text-[10px] font-bold text-slate-500">
-          <span className="uppercase tracking-widest">{t.seasons[gameState.season]} MISSION | SOLO</span>
-          <span className="text-sky-500 font-mono">{gameState.weather} | D{gameState.day} {gameState.time}:00</span>
-        </div>
-        <div className="flex-grow cyber-panel rounded-2xl p-5 overflow-y-auto custom-scrollbar flex flex-col gap-2">
-           {gameState.log.map((l, i) => (
-             <div key={i} className={`text-[11px] leading-relaxed pl-3 border-l-2 transition-all duration-500 animate-in slide-in-from-left-1 ${
-               l.includes('[DANGER]') ? 'text-red-400 border-red-900' : 
-               l.startsWith('[SYSTEM]') ? 'text-sky-400 border-sky-900' : 
-               l.startsWith('[EVENT]') ? 'text-amber-400 border-amber-900' : 
-               l.startsWith('[STORY]') ? 'text-purple-400 border-purple-900' : 
-               l.startsWith('[GUIDE]') ? 'text-emerald-400 border-emerald-900' :
-               'text-slate-400 border-slate-800'
-             }`}>
-               {l}
-             </div>
-           ))}
-           <div ref={logEndRef} />
-        </div>
-      </div>
-
-      <div className="w-full md:w-80 p-5 flex flex-col gap-4 bg-black/40 overflow-y-auto custom-scrollbar">
-        <div className="flex-grow cyber-panel rounded-2xl p-4 flex flex-col overflow-hidden">
-          <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-3">{t.inventory} ({gameState.status.weight.toFixed(1)}kg)</p>
-          <div className="flex-grow overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
-            {gameState.inventory.length === 0 ? <p className="text-center py-10 text-[10px] text-slate-600 italic uppercase">{t.empty}</p> : 
-             gameState.inventory.map(item => (
-               <button key={item.id} onClick={() => handleUseItem(item)} className="w-full flex justify-between items-center p-3 rounded-xl bg-slate-900/50 border border-white/5 hover:border-sky-500/30 transition-all text-left group">
-                 <div className="min-w-0">
-                    <p className="text-[10px] font-black text-slate-300 uppercase truncate group-hover:text-sky-400 transition-colors">{item.name[gameState.language]}</p>
-                    <p className="text-[8px] text-slate-500 font-bold uppercase">{item.isConsumable ? 'DEP' : 'DUR'}</p>
-                 </div>
-                 <span className="bg-slate-800 px-2 py-0.5 rounded text-[10px] font-mono font-bold text-white">x{item.quantity}</span>
-               </button>
-             ))}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-2 pt-2">
-           {gameState.isCamping ? (
-             <div className="space-y-2">
-                <button onClick={handleSleep} className="w-full py-4 bg-emerald-700 text-white font-black rounded-xl uppercase tracking-widest text-xs shadow-lg shadow-emerald-900/20 active:scale-95 transition-all">{t.sleep}</button>
-                <button onClick={() => setGameState(p => ({...p, isCamping: false}))} className="w-full py-3 bg-slate-800 text-slate-300 font-black rounded-xl uppercase text-[10px] border border-white/5">{t.packup}</button>
-             </div>
-           ) : (
-             <>
-               <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest border border-white/5 rounded-xl px-3 py-2 bg-slate-900/40 flex flex-col gap-1">
-                 <div className="flex items-center justify-between">
-                   <span>{t.progressLabel}</span>
-                   <span className="text-sky-400 font-mono">{gameState.progress}/3</span>
-                 </div>
-                 <span className="text-slate-500 font-normal normal-case tracking-normal text-[9px]">{t.progressHint}</span>
-               </div>
-               {currentLandmark.options.map(opt => (
-                 <button key={opt.id} onClick={() => handleRouteChoice(opt)} className="w-full py-4 bg-sky-700 text-white font-black rounded-xl uppercase tracking-widest text-xs shadow-lg shadow-sky-900/20 active:scale-95 transition-all">{t.proceed}</button>
-               ))}
-               <div className="grid grid-cols-2 gap-2">
-                 <button onClick={handleRest} className="py-3 bg-slate-900/50 text-slate-400 font-black rounded-xl uppercase text-[10px] border border-white/5 hover:bg-slate-800 transition-all">{t.restDesc.split(' ')[0]}</button>
-                 <button onClick={() => setGameState(p => ({...p, isCamping: true}))} className="py-3 bg-amber-700 text-white font-black rounded-xl uppercase text-[10px] active:scale-95 transition-all">{t.camp.split(' ')[0]}</button>
-               </div>
-               <button 
-                onClick={handleCheckIn} 
-                disabled={hasCheckedInCurrent}
-                className={`w-full py-3 font-black border rounded-xl uppercase text-[10px] transition-all ${hasCheckedInCurrent ? 'bg-slate-800 border-white/10 text-slate-600 cursor-not-allowed' : 'bg-indigo-900/40 text-indigo-400 border-indigo-500/30 hover:bg-indigo-900/60 active:scale-95'}`}
-               >
-                 {hasCheckedInCurrent ? '✅ 已打卡' : `📍 ${t.checkin}`}
-               </button>
-             </>
-           )}
-        </div>
-
-        {gameState.phase === 'gameover' && (
-          <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-500 hardware-accel">
-             <div className="max-w-md w-full cyber-panel p-8 rounded-[2.5rem] border border-red-500/20 text-center space-y-8 shadow-2xl">
-                <h2 className={`text-4xl md:text-5xl font-black italic uppercase tracking-tighter ${gameState.currentLandmarkIndex === LANDMARKS.length - 1 && gameState.status.health > 0 ? 'text-emerald-500' : 'text-neon-red text-red-700'}`}>
-                   {gameState.currentLandmarkIndex === LANDMARKS.length - 1 && gameState.status.health > 0 ? t.success : t.failed}
-                </h2>
-                <p className="text-slate-300 text-xs leading-relaxed italic border-y border-white/5 py-6 px-4">{gameState.gameMessage[gameState.language]}</p>
-                {gameState.deathCauseChain.length > 0 && (
-                  <div className="bg-red-950/30 border border-red-700/50 rounded-lg px-4 py-3 text-left">
-                    <p className="text-red-400 text-[10px] font-black uppercase tracking-widest mb-2">【死亡原因链条】</p>
-                    <p className="text-red-300 text-xs font-mono leading-relaxed">{gameState.deathCauseChain[0][gameState.language]}</p>
-                  </div>
-                )}
-                <div className="grid grid-cols-4 gap-2">
-                   <div className="space-y-1"><p className="text-[8px] text-slate-500 uppercase font-black">功德</p><p className="text-base font-black text-white">{gameState.merit}</p></div>
-                   <div className="space-y-1"><p className="text-[8px] text-slate-500 uppercase font-black">里程</p><p className="text-base font-black text-white">{gameState.currentLandmarkIndex + 1}</p></div>
-                   <div className="space-y-1"><p className="text-[8px] text-slate-500 uppercase font-black">存活</p><p className="text-base font-black text-white">{gameState.day}D</p></div>
-                   <div className="space-y-1"><p className="text-[8px] text-slate-500 uppercase font-black">打卡</p><p className="text-base font-black text-white">{gameState.checkInCount}</p></div>
-                </div>
-                <button onClick={resetToHome} className="w-full py-4 bg-white text-black font-black uppercase rounded-2xl hover:scale-105 active:scale-95 transition-all tracking-[0.2em] text-xs">返回首页</button>
-             </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-const translations: any = {
-  zh: {
-    start: '开启征途',
-    prepare: '物资筹备',
-    intro: '穿越禁令',
-    back: '返回首页',
-    shopping: '量子补给站',
-    load: '当前负重',
-    add: '购买',
-    reset: '清空',
-    depart: '踏入无人区',
-    log: '生存记录',
-    biometrics: '生命体征',
-    inventory: '行囊存储',
-    landmark: '所在坐标',
-    weather: '气象中枢',
-    day: '第 {d} 天',
-    health: '生命指数',
-    stamina: '动力储备',
-    temp: '核心体温',
-    proceed: '推进路程',
-    progressLabel: '路段推进',
-    progressHint: '到 3/3 将抵达下一地标',
-    rest: '原地休息',
-    camp: '扎营驻守',
-    sleep: '深度睡眠',
-    packup: '拔营',
-    checkin: '数字签到',
-    achievements: '成就系统',
-    achievementList: '荣耀殿堂 (成就)',
-    restDesc: '小憩 (体力+20)',
-    failed: '山神收割灵魂',
-    success: '活着离开了圣山',
-    reboot: '重新进入',
-    empty: '行囊空空...',
-    gold: '点数',
-    cart: '交易清单',
-    cost: '总计',
-    explore: '搜寻周边',
-    guide: '求助向导',
-    noHeadlamp: '夜晚光线不足，极其危险！',
-    warning: '【圣山禁地】鳌太线为自然保护区禁区。秦岭山神的领地，非许可严禁涉足。此处已夺58条人命。山不测，人不寿。',
-    background: '你翻越了围栏，踏入了圣山的禁地。现在，秦岭将审判你的每一步。',
-    deathReason: {
-      health: '秦岭吞没了你。你成了这座圣山永恒的子民。',
-      stamina: '体力耗尽的那一刻，你跪倒在乱石之中。山神见证了你的最后呼吸。',
-      bodyTemp: '极寒如刀刃剖开你的灵魂。你在白色的永恒中沉睡了。',
-      hydration: '干渴是最温柔的死法。你在幻觉中微笑着闭上了眼。'
-    },
-    categories: { core: '核心背负', gear: '生存装备', supplies: '物资补给', special: '特殊装备' },
-    seasons: { [Season.SPRING]: '春季', [Season.SUMMER]: '夏季', [Season.AUTUMN]: '秋季', [Season.WINTER]: '冬季' }
-  },
-  en: {
-    start: 'Start',
-    prepare: 'Supply Prep',
-    intro: 'Entry Ban',
-    back: 'Back',
-    shopping: 'Quantum Depot',
-    load: 'Weight',
-    add: 'Buy',
-    reset: 'Clear',
-    depart: 'Enter Zone',
-    log: 'Survival Log',
-    biometrics: 'Vitals',
-    inventory: 'Storage',
-    landmark: 'Coords',
-    weather: 'Weather',
-    day: 'Day {d}',
-    health: 'Life',
-    stamina: 'Stamina',
-    temp: 'Body Temp',
-    proceed: 'Advance',
-    progressLabel: 'Segment progress',
-    progressHint: 'Reach 3/3 to move to the next landmark',
-    rest: 'Rest',
-    camp: 'Camp',
-    sleep: 'Sleep',
-    packup: 'Pack Up',
-    checkin: 'Check-in',
-    achievements: 'Achievements',
-    achievementList: 'Hall of Fame',
-    restDesc: 'Brief respite (+20 Stamina)',
-    failed: 'CONSUMED BY SACRED MOUNTAIN',
-    success: 'BLESSED & RETURNED',
-    reboot: 'Reboot',
-    empty: 'Empty...',
-    gold: 'Credits',
-    cart: 'Cart',
-    cost: 'Total',
-    explore: 'Explore',
-    guide: 'Ask Guide',
-    noHeadlamp: 'Night falls upon the Sacred Mountain. Darkness here devours the unprepared!',
-    warning: '【SACRED FORBIDDEN ZONE】The Aotai Trail is the inner sanctum of the Sacred Mountain. Entry without permission is strictly forbidden. 58+ have perished here. The mountain judges all trespassers.',
-    background: 'You crossed the barrier into the Sacred Mountain\'s forbidden realm. Every step is now judged by eternity.',
-    deathReason: {
-      health: 'The Sacred Mountain absorbed your body. You are now eternal.',
-      stamina: 'You collapsed between ancient stones. The mountain witnessed your last breath.',
-      bodyTemp: 'Hypothermia became your gateway. You sleep in endless white.',
-      hydration: 'Thirst gave you the gentlest death. You smiled as darkness took you.'
-    },
-    categories: { core: 'Core Carrying', gear: 'Survival Gear', supplies: 'Supplies', special: 'Special Equipment' },
-    seasons: { [Season.SPRING]: 'Spring', [Season.SUMMER]: 'Summer', [Season.AUTUMN]: 'Autumn', [Season.WINTER]: 'Winter' }
-  }
 };
 
 export default App;
