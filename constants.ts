@@ -134,6 +134,18 @@ makeShopItem('g25','太白山景区套票','Taibai Mountain Scenic Pass','specia
 makeShopItem('g26','望远镜','Binoculars','special',0.5,3500,'用于观测星空，更容易发现沿途事件。','For stargazing and spotting events along the route.')
 ];
 
+export const DIARY_ITEM: InventoryItem = {
+  id: 'diary', name: { zh: '日记本', en: 'Diary' }, type: 'special', quality: 'basic',
+  description: { zh: '记录出发前的准备与沿途见闻。', en: 'A journal for preparations and trail notes.' },
+  effect: status => status, quantity: 1, weight: 0.1, cost: 0, isConsumable: false
+};
+export const ROOT_ITEM: InventoryItem = {
+  id: 'roots', name: { zh: '草根', en: 'Wild Roots' }, type: 'supplies', quality: 'basic',
+  description: { zh: '野外找到的少量可食用根茎，能暂时缓解饥饿。', en: 'A small amount of edible wild roots.' },
+  effect: status => ({ ...status, energy: Math.min(100, status.energy + 15), hydration: Math.min(100, status.hydration + 3) }),
+  quantity: 1, weight: 0.1, cost: 0, isConsumable: true
+};
+
 export const INITIAL_STATUS: PlayerStatus = {
   health: 100,
   stamina: 100,
@@ -150,13 +162,17 @@ export const INITIAL_GAME_STATE: GameState = {
   phase: 'landing',
   currentLandmarkIndex: 0,
   progress: 0,
-  weather: WeatherType.CLEAR,
+  weather: WeatherType.OVERCAST,
+  sceneMode: 'inn',
+  routeIndex: 0,
+  ambientTemp: 2,
   season: Season.AUTUMN,
   time: 8,
   day: 1,
   status: INITIAL_STATUS,
   inventory: [
-    { ...SHOP_ITEMS.find(i => i.id === 'pack65')!, quantity: 1 }
+    { ...SHOP_ITEMS.find(i => i.id === 'pack65')!, quantity: 1 },
+    { ...DIARY_ITEM }
   ],
   log: [],
   gameMessage: { zh: '', en: '' },
