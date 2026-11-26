@@ -25,10 +25,21 @@ const SCRIPTED_MISSING_EVENT: RandomEvent = {
     { text: { zh: '匆匆路过', en: 'Pass by' }, log: { zh: '你扫了一眼，没有太在意。毕竟在鳌太线上，每个人都自顾不暇。', en: 'You glance at it without much concern. On the Aotai Trail, everyone is struggling to take care of themselves.' }, healthImpact: 0, staminaImpact: 0, meritImpact: -5 }
   ]
 };
+const SCRIPTED_BOAR_EVENT: RandomEvent = {
+  id: 'script_injured_boar',
+  title: { zh: '受伤的野猪', en: 'Injured Wild Boar' },
+  description: { zh: '树林间传来低沉的喘息声。你拨开灌木，发现一头野猪蜷缩在树根旁，后腿被猎套擦伤，血迹凝在粗糙的皮毛上，它虚弱地看着你。', en: 'Low panting comes from the woods. You push aside the bushes and find a wild boar curled beside a tree root. Its hind leg has been scraped by a snare, and it watches you weakly.' },
+  choices: [
+    { text: { zh: '使用医疗包救治', en: 'Use a medical kit to treat it' }, log: { zh: '你小心地处理了野猪的伤口，随后迅速退回安全距离。', en: 'You carefully tend to the boar and retreat to a safe distance.' }, healthImpact: 2, staminaImpact: -2, meritImpact: 10, requiredItems: [{ itemId: 'm1', quantity: 1 }] },
+    { text: { zh: '递上食物后离开', en: 'Leave food and move on' }, log: { zh: '你把食物放在远处，等野猪注意到后便快步离开。', en: 'You leave food at a distance and move away.' }, healthImpact: 0, staminaImpact: -1, meritImpact: 5, requiredItems: [{ itemId: 'f1', quantity: 1 }] },
+    { text: { zh: '无视离开', en: 'Ignore it and leave' }, log: { zh: '你担心野生动物可能突然暴起，决定不插手，快步离开这里。', en: 'Worried the wild animal might suddenly lunge, you decide not to interfere and leave quickly.' }, healthImpact: -3, staminaImpact: 0, meritImpact: -2 }
+  ]
+};
+
 const SEARCH_ROOTS_EVENT: RandomEvent = {
   id: 'search_roots',
   title: { zh: '发现可食用草根', en: 'Edible Wild Roots' },
-  description: { zh: '你在潮湿的石缝边找到一些根茎。它们看起来可以暂时充饥，但你仍需要谨慎判断。', en: 'You find a few roots near a damp rock crevice. They may help with hunger, but be cautious.' },
+  description: { zh: '你在附近找到了一些草根，略带水分，味道苦涩。', en: 'You find some grass roots nearby, slightly moist and bitter-tasting.' },
   choices: [
     { text: { zh: '立即食用', en: 'Eat now' }, log: { zh: '草根的味道并不好，但至少暂时缓解了饥饿。', en: 'The roots taste rough, but ease your hunger.' }, healthImpact: 0, staminaImpact: 0, meritImpact: 0, energyImpact: 15, hydrationImpact: 3 },
     { text: { zh: '放入背包', en: 'Put them in the backpack' }, log: { zh: '你把草根收进背包，留作之后的补给。', en: 'You store the roots for later.' }, healthImpact: 0, staminaImpact: 0, meritImpact: 0, rewardItems: [{ itemId: 'roots', quantity: 1 }] },
@@ -818,6 +829,13 @@ const App: React.FC = () => {
       setGameState(p => ({ ...p, time: p.time + 0.25, status: { ...nextStatus, weight: calculateWeight(p.inventory) } }));
       return;
     }
+    if (!triggered.includes('script_injured_boar')) {
+      const boarStatus = updateStatus(gameState.status, WeatherType.BREEZE, 0.35, 'active');
+      setCurrentEvent(SCRIPTED_BOAR_EVENT);
+      setCurrentEventImage(null);
+      setGameState(p => ({ ...p, routeIndex: 1, currentLandmarkIndex: 1, time: p.time + 0.35, weather: WeatherType.BREEZE, ambientTemp: 4 + Math.round(Math.random() * 3), status: { ...boarStatus, weight: calculateWeight(p.inventory) } }));
+      return;
+    }
     const nextIndex = Math.min(40, (gameState.routeIndex || 0) + 1);
     const nextTimeRaw = gameState.time + 0.35;
     const nextDay = gameState.day + Math.floor(nextTimeRaw / 24);
@@ -841,15 +859,38 @@ const App: React.FC = () => {
   };
 
   const handleQuickAction = (action: 'exercise' | 'search' | 'rest') => {
-    const hours = action === 'exercise' ? 0.12 : action === 'search' ? 0.18 : 0.3;
-    const mode = action === 'rest' ? 'passive' : 'active';
-    const next = updateStatus(gameState.status, gameState.weather, hours, mode);
-    if (action === 'exercise') next.bodyTemp = Math.min(37.2, next.bodyTemp + 0.15);
-    if (action === 'rest') { next.stamina = Math.min(100, next.stamina + 12); next.health = Math.min(100, next.health + 2); }
-    const raw = gameState.time + hours;
-    setGameState(p => ({ ...p, time: raw % 24, day: p.day + Math.floor(raw / 24), status: { ...next, weight: calculateWeight(p.inventory) }, log: [...p.log, action === 'exercise' ? '[ACTION] 原地活动，尝试保持体温。' : action === 'search' ? '[ACTION] 搜寻附近的物资。' : '[ACTION] 原地休息，恢复体能。'].slice(-LOG_LIMIT) }));
+    if (action === 'search' && gameState.sceneMode === 'inn') return;
+    const next = { ...gameState.status };
+    let minutes = 0;
+    let message = '';
+    if (action === 'exercise') {
+      minutes = 31;
+      next.stamina = Math.max(0, next.stamina - 4);
+      next.energy = Math.max(0, next.energy - 3);
+      message = '你原地活动了一会儿，勉强没让身子继续冷下去。';
+    } else if (action === 'rest') {
+      next.bodyTemp = Math.max(34, next.bodyTemp - 0.1);
+      next.stamina = Math.min(100, next.stamina + 2);
+      next.energy = Math.max(0, next.energy - 2);
+      message = '你原地休息了片刻，调整了呼吸。';
+    } else {
+      minutes = 10;
+      next.stamina = Math.max(0, next.stamina - 2);
+      next.energy = Math.max(0, next.energy - 2);
+      message = '你在附近寻找可以利用的物资。';
+    }
+    const raw = gameState.time + minutes / 60;
+    setGameState(p => ({
+      ...p,
+      time: raw % 24,
+      day: p.day + Math.floor(raw / 24),
+      ambientTemp: action === 'exercise' ? Math.min(7, (p.ambientTemp ?? 2) + 1) : p.ambientTemp,
+      status: { ...next, weight: calculateWeight(p.inventory) },
+      log: [...p.log, '[ACTION] ' + message].slice(-LOG_LIMIT)
+    }));
     if (action === 'search') { setCurrentEvent(SEARCH_ROOTS_EVENT); setCurrentEventImage(null); }
   };
+
 
   const triggerLandmarkStory = useCallback((landmarkIndex: number) => {
     const landmark = LANDMARKS[landmarkIndex];
