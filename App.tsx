@@ -883,6 +883,13 @@ const App: React.FC = () => {
     return landmarkStories[landmarkIndex as keyof typeof landmarkStories] || '';
   }, [gameState.language]);
 
+  const startNewChallenge = () => {
+    setGameState(p => ({ ...INITIAL_GAME_STATE, achievements: p.achievements, phase: 'startpoint' }));
+    setShoppingCart({ pack65: 1 });
+    setCurrentEvent(null);
+    setCurrentEventImage(null);
+  };
+
   const resetToHome = () => {
     setGameState(p => ({ ...INITIAL_GAME_STATE, achievements: p.achievements }));
     setShoppingCart({ pack65: 1 });
@@ -921,7 +928,7 @@ const App: React.FC = () => {
           showAchievements={showAchievements}
           showQuiz={showQuiz}
           t={t}
-          onStartShopping={() => setGameState(p => ({ ...p, phase: 'startpoint' }))}
+          onStartShopping={startNewChallenge}
           onContinue={() => setGameState(p => ({ ...p, phase: 'hiking' }))}
           onShowAchievements={setShowAchievements}
           onShowQuiz={handleStartQuiz}
