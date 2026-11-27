@@ -11,7 +11,7 @@ import QuizModal from './components/QuizModal';
 import ShoppingPage from './components/ShoppingPage';
 import GameOverModal from './components/GameOverModal';
 import IntroSequence from './components/IntroSequence';
-import { StartPointModal, StoryScreen, OfficialShop, OfficialGameplay } from './components/ReplicaUI';
+import { StartPointModal, StoryScreen, OfficialShop, OfficialGameplay, getRouteWaypoints } from './components/ReplicaUI';
 import { useGameLogic } from './hooks/useGameLogic';
 import { useQuiz } from './hooks/useQuiz';
 
@@ -49,6 +49,7 @@ const SEARCH_ROOTS_EVENT: RandomEvent = {
 
 
 const SAVE_KEY='cyberHike_offline_save_v1';
+const MOUNTAIN_BLESSING_KEY='cyberHike_mountain_blessing_v1';
 const loadGameState=():GameState=>{
  const base:GameState={...INITIAL_GAME_STATE,status:{...INITIAL_GAME_STATE.status,conditions:[...INITIAL_GAME_STATE.status.conditions]},inventory:INITIAL_GAME_STATE.inventory.map(i=>({...i})),achievements:INITIAL_GAME_STATE.achievements.map(a=>({...a}))};
  try{const raw=localStorage.getItem(SAVE_KEY);if(!raw){const legacy=localStorage.getItem('cyberHike_achievements');const ids:string[]=legacy?JSON.parse(legacy):[];return {...base,achievements:base.achievements.map(a=>({...a,unlocked:ids.includes(a.id)}))}}
@@ -61,6 +62,12 @@ const loadGameState=():GameState=>{
 };
 const App: React.FC = () => {
  const [gameState,setGameState]=useState<GameState>(()=>loadGameState());
+  const [hasMountainBlessing,setHasMountainBlessing]=useState(()=>{try{return localStorage.getItem(MOUNTAIN_BLESSING_KEY)==='unlocked'}catch{return false}});
+  const redeemMountainBlessing=(code:string)=>{
+    const normalized=code.normalize('NFKC').replace(/\\s+/g,'');
+    if(normalized!=='雾尽见山神')return false;
+    try{localStorage.setItem(MOUNTAIN_BLESSING_KEY,'unlocked');setHasMountainBlessing(true);return true}catch{return false}
+  };
 
   const [currentEvent, setCurrentEvent] = useState<RandomEvent | null>(null);
   const [showAchievements, setShowAchievements] = useState(false);
@@ -722,6 +729,7 @@ const App: React.FC = () => {
 
 
   const startJourney = () => {
+    const startAtHuangbaiyuan=gameState.startPoint==='huangbaiyuan';
     const entries = Object.entries(shoppingCart) as [string, number][];
     const cost = entries.reduce((acc, [id, q]) => acc + (SHOP_ITEMS.find(i => i.id === id)?.cost || 0) * q, 0);
     
@@ -740,7 +748,11 @@ const App: React.FC = () => {
     if(cost>gameState.gold||weight>maxWeight)return;
 
     // 添加背景故事和出发日志
-    const storyLogs = [
+    const storyLogs = startAtHuangbaiyuan ? [
+      `[STORY] ${gameState.language === 'zh' ? '你从黄柏塬镇整备出发，抵达23km登山口。雾气沿着山谷缓缓上升，前方是练驴坡与导航架。' : 'You set out from Huangbaiyuan Town and reach the 23km trailhead. Mist rises through the valley toward Lianlü Slope and Navigation Rack.'}`,
+      `[STORY] ${gameState.language === 'zh' ? '这条专属路线将在导航架接入鳌太主线。山神赐福打开了另一处入口，却不会替你承担山中的风险。' : 'This exclusive approach joins the Aotai main route at Navigation Rack. The blessing opens another entrance, but does not remove the mountain risks.'}`,
+      `[SYSTEM] ${gameState.language === 'zh' ? '黄柏塬路线开启。请始终敬畏自然，勿将游戏模拟视为现实徒步指引。' : 'Huangbaiyuan route begins. Respect nature; this simulation is not real-world hiking guidance.'}`
+    ] : [
       `[STORY] ${gameState.language === 'zh' ? '你站在塘口村的入口处，望着巍峨的秦岭山脉。这条鳌太线被誉为“中华龙脊”，同时也是中国最危险的徒步线路之一。' : 'You stand at the entrance of Tangkou Village, gazing at the majestic Qinling Mountains. This Aotai Trail is known as the "Dragon Spine of China" and also one of the most dangerous hiking routes in the country.'}`,
       `[STORY] ${gameState.language === 'zh' ? '无数徒步者曾在这里留下足迹，也有不少人永远留在了这里。你检查了一遍装备，深吸一口气，踏上了这条充满未知的道路。' : 'Countless hikers have left their footprints here, and many have remained forever. You check your equipment, take a deep breath, and step onto this road full of unknowns.'}`,
       `[SYSTEM] ${gameState.language === 'zh' ? '征途开启。秦岭鳌太线：非经允许严禁穿越。' : 'Journey begins. Qinling Aotai Trail: Unauthorized crossing prohibited.'}`
@@ -786,7 +798,7 @@ const App: React.FC = () => {
     setGameState(p => ({ 
       ...p, 
       phase: 'hiking',
-      sceneMode: 'inn',
+      sceneMode: startAtHuangbaiyuan ? 'trail' : 'inn',
       routeIndex: 0,
       ambientTemp: 2,
       weather: WeatherType.OVERCAST,
@@ -817,6 +829,8 @@ const App: React.FC = () => {
   };
 
   const handleSceneAdvance = () => {
+    const activeRoute=getRouteWaypoints(gameState.startPoint);
+    const routeEndIndex=activeRoute.length-1;
     if (gameState.sceneMode === 'inn') {
       setGameState(p => ({ ...p, sceneMode: 'trail', time: p.time + 0.15, ambientTemp: 3, log: [...p.log, '[SCENE] 离开驴友之家，来到塘口山道。'].slice(-LOG_LIMIT) }));
       return;
@@ -836,21 +850,21 @@ const App: React.FC = () => {
       setGameState(p => ({ ...p, routeIndex: 1, currentLandmarkIndex: 1, time: p.time + 0.35, weather: WeatherType.BREEZE, ambientTemp: 4 + Math.round(Math.random() * 3), status: { ...boarStatus, weight: calculateWeight(p.inventory) } }));
       return;
     }
-    const nextIndex = Math.min(40, (gameState.routeIndex || 0) + 1);
+    const nextIndex = Math.min(routeEndIndex, (gameState.routeIndex || 0) + 1);
     const nextTimeRaw = gameState.time + 0.35;
     const nextDay = gameState.day + Math.floor(nextTimeRaw / 24);
     const nextTime = nextTimeRaw % 24;
     const weatherOptions = Object.values(WeatherType);
     const nextWeather = Math.random() < 0.18 ? weatherOptions[Math.floor(Math.random() * weatherOptions.length)] : gameState.weather;
-    const nextLandmark = Math.min(LANDMARKS.length - 1, Math.floor(nextIndex / 40 * (LANDMARKS.length - 1)));
+    const nextLandmark = Math.min(LANDMARKS.length - 1, Math.floor(nextIndex / Math.max(1,routeEndIndex) * (LANDMARKS.length - 1)));
     setGameState(p => ({
       ...p, routeIndex: nextIndex, currentLandmarkIndex: nextLandmark, time: nextTime, day: nextDay,
       weather: nextWeather, ambientTemp: Math.max(-12, Math.min(12, 4 - Math.floor(nextIndex / 5) + Math.round((Math.random() - 0.5) * 4))),
       status: { ...nextStatus, weight: calculateWeight(p.inventory) },
-      phase: nextIndex >= 40 ? 'gameover' : p.phase,
-      gameMessage: nextIndex >= 40 ? { zh: '你终于抵达南塬村。山路在身后渐渐隐入雾中，你带着疲惫与记忆，平安走出了这段旅程。', en: 'You reach Nanyuan Village and make it safely through the journey.' } : p.gameMessage
+      phase: nextIndex >= routeEndIndex ? 'gameover' : p.phase,
+      gameMessage: nextIndex >= routeEndIndex ? { zh: '你终于抵达南塬村。山路在身后渐渐隐入雾中，你带着疲惫与记忆，平安走出了这段旅程。', en: 'You reach Nanyuan Village and make it safely through the journey.' } : p.gameMessage
     }));
-    if (nextIndex < 40 && Math.random() < 0.28) {
+    if (nextIndex < routeEndIndex && Math.random() < 0.28) {
       const event = selectWeightedEvent();
       setCurrentEvent(event);
       setCurrentEventImage(null);
@@ -966,16 +980,18 @@ const App: React.FC = () => {
           onShowAchievements={setShowAchievements}
           onShowQuiz={handleStartQuiz}
           translations={translations}
+          hasMountainBlessing={hasMountainBlessing}
+          onRedeemCode={redeemMountainBlessing}
         />
       </>
     );
   }
 
   if (gameState.phase === 'startpoint') {
-    return <StartPointModal onCancel={() => setGameState(p => ({ ...p, phase: 'landing' }))} onConfirm={() => setGameState(p => ({ ...p, phase: 'story' }))} />;
+    return <StartPointModal hasMountainBlessing={hasMountainBlessing} onCancel={() => setGameState(p => ({ ...p, phase: 'landing' }))} onConfirm={(startPoint) => setGameState(p => ({ ...p, startPoint, phase: 'story' }))} />;
   }
   if (gameState.phase === 'story' || gameState.phase === 'intro') {
-    return <StoryScreen onBack={() => setGameState(p => ({ ...p, phase: 'startpoint' }))} onContinue={() => setGameState(p => ({ ...p, phase: 'shopping' }))} />;
+    return <StoryScreen startPoint={gameState.startPoint || 'tangkou'} onBack={() => setGameState(p => ({ ...p, phase: 'startpoint' }))} onContinue={() => setGameState(p => ({ ...p, phase: 'shopping' }))} />;
   }
   if (gameState.phase === 'shopping') {
     return <OfficialShop gameState={gameState} cart={shoppingCart} category={activeShopCategory} onCategory={setActiveShopCategory} onCart={updateCart} onStart={startJourney} onBack={() => setGameState(p => ({ ...p, phase: 'story' }))} />;
@@ -984,7 +1000,7 @@ const App: React.FC = () => {
     return <GameOverModal gameState={gameState} t={t} landmarks={LANDMARKS} onResetToHome={resetToHome} />;
   }
   if (gameState.phase === 'hiking') {
-    return <OfficialGameplay gameState={gameState} sceneMode={gameState.sceneMode || 'inn'} currentEvent={currentEvent} eventImage={currentEventImage} onEventChoice={handleSceneEventChoice} onAdvance={handleSceneAdvance} onEnterInn={() => setGameState(p => ({ ...p, sceneMode: 'inn' }))} onQuickAction={handleQuickAction} onUseItem={handleUseItem} onAbandon={resetToHome} onReturnHome={() => setGameState(p => ({ ...p, phase: 'landing' }))} />;
+    return <OfficialGameplay gameState={gameState} sceneMode={gameState.sceneMode || 'inn'} hasMountainBlessing={hasMountainBlessing} currentEvent={currentEvent} eventImage={currentEventImage} onEventChoice={handleSceneEventChoice} onAdvance={handleSceneAdvance} onEnterInn={() => setGameState(p => ({ ...p, sceneMode: 'inn' }))} onQuickAction={handleQuickAction} onUseItem={handleUseItem} onAbandon={resetToHome} onReturnHome={() => setGameState(p => ({ ...p, phase: 'landing' }))} />;
   }
 
 };
