@@ -75,7 +75,7 @@ const MountainLegacyModal: React.FC<Props> = ({ show, bank, records, achievement
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
         {tab==='routes'&&<div className="space-y-3">
-          <div className="rounded-2xl border border-sky-300/15 bg-sky-950/20 p-4"><b className="text-sm text-sky-100">先登山径 · 专属路线资格</b><p className="mt-2 text-xs leading-6 text-stone-400">山神赐福已为本地档案记录五条专属路线资格，并开放从黄柏塬镇出发的多起点入口。路线资格与地图内容接入状态分开显示，避免把尚未完成的路线误标为可玩。 已获得未来新增路线的优先体验资格。</p></div>
+          <div className="rounded-2xl border border-sky-300/15 bg-sky-950/20 p-4"><b className="text-sm text-sky-100">先登山径 · 专属路线资格</b><p className="mt-2 text-xs leading-6 text-stone-400">山神赐福已为本地档案记录五条专属路线资格，并开放从黄柏塬镇出发的多起点入口。路线资格与地图内容接入状态分开显示，避免把尚未完成的路线误标为可玩。 已获得未来新增路线的优先体验资格。 已获得未来新增路线的优先体验资格。</p></div>
           {ROUTE_RIGHTS.map(route=><div key={route.name} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/20 p-3"><div className="min-w-0"><b className="block text-xs text-stone-100">{route.name}</b><p className="mt-1 text-[10px] text-stone-500">{route.note}</p></div><div className="shrink-0 text-right"><span className="block text-[9px] font-bold text-emerald-200">资格已解锁</span><span className={'mt-1 block text-[9px] '+(route.integrated?'text-emerald-300':'text-amber-200/70')}>{route.integrated?'地图已接入':'地图数据待接入'}</span></div></div>)}
           <p className="text-[10px] leading-5 text-stone-500">注：目前黄柏塬镇路线已接入离线地图。其余路线已纳入权益清单，但仍需补齐官方路线节点、分支与事件数据后才能开放实际游玩。</p>
         </div>}
