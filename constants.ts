@@ -164,6 +164,7 @@ export const INITIAL_GAME_STATE: GameState = {
   progress: 0,
   weather: WeatherType.OVERCAST,
   sceneMode: 'inn',
+  startPoint: 'tangkou',
   routeIndex: 0,
   ambientTemp: 2,
   season: Season.AUTUMN,
