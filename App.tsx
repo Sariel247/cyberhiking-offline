@@ -70,6 +70,40 @@ const App: React.FC = () => {
   const [legacyBank,setLegacyBank]=useState<MountainLegacyBank>(()=>loadMountainLegacyBank());
   const [historyRecords,setHistoryRecords]=useState<MountainHistoryRecord[]>(()=>loadMountainHistory());
   const [showMountainLegacy,setShowMountainLegacy]=useState(false);
+  const settleMountainLegacy=useCallback((state:GameState,outcome:MountainHistoryRecord['outcome'])=>{
+    if(!hasMountainBlessing||!state.runId)return true;
+    const existing=loadMountainHistory();
+    if(existing.some(record=>record.id===state.runId))return true;
+    const now=new Date().toISOString();
+    const inheritedEquipment=state.inventory.filter(item=>LEGACY_EQUIPMENT_IDS.has(item.id)&&item.quantity>0).map(item=>({itemId:item.id,quantity:item.quantity}));
+    const record:MountainHistoryRecord={
+      id:state.runId,
+      endedAt:now,
+      outcome,
+      routeName:state.startPoint==='huangbaiyuan'?'黄柏塬镇路线':'塘口经典路线',
+      days:state.day,
+      merit:state.merit,
+      landmarksReached:Math.max(1,state.currentLandmarkIndex+1),
+      gold:Math.max(0,Math.floor(state.gold)),
+      titles:state.achievements.filter(a=>a.unlocked).map(a=>a.name.zh),
+      achievements:state.achievements.filter(a=>a.unlocked).map(a=>a.id),
+      inheritedEquipment
+    };
+    const nextBank:MountainLegacyBank={balance:Math.max(0,Math.floor(state.gold)),equipment:inheritedEquipment,updatedAt:now};
+    const nextRecords=[record,...existing].slice(0,100);
+    try{
+      saveMountainLegacyBank(nextBank);
+      saveMountainHistory(nextRecords);
+      setLegacyBank(nextBank);
+      setHistoryRecords(nextRecords);
+      return true;
+    }catch(error){
+      console.warn('Mountain legacy settlement failed:',error);
+      return false;
+    }
+  },[hasMountainBlessing]);
+
+
   const importMountainLegacyBackup=(backup:MountainLegacyBackup)=>{
     try{
       if(!isMountainLegacyBackup(backup))return false;
@@ -125,34 +159,9 @@ const App: React.FC = () => {
 
   useEffect(()=>{
     if(!hasMountainBlessing||gameState.phase!=='gameover'||!gameState.runId)return;
-    const existing=loadMountainHistory();
-    if(existing.some(record=>record.id===gameState.runId))return;
-    const now=new Date().toISOString();
-    const inheritedEquipment=gameState.inventory.filter(item=>LEGACY_EQUIPMENT_IDS.has(item.id)&&item.quantity>0).map(item=>({itemId:item.id,quantity:item.quantity}));
     const outcome=gameState.status.health>0&&gameState.currentLandmarkIndex===LANDMARKS.length-1?'success':'failed';
-    const titles=gameState.achievements.filter(a=>a.unlocked).map(a=>a.name.zh);
-    const record:MountainHistoryRecord={
-      id:gameState.runId,
-      endedAt:now,
-      outcome,
-      routeName:gameState.startPoint==='huangbaiyuan'?'黄柏塬镇路线':'塘口经典路线',
-      days:gameState.day,
-      merit:gameState.merit,
-      landmarksReached:Math.max(1,gameState.currentLandmarkIndex+1),
-      gold:Math.max(0,Math.floor(gameState.gold)),
-      titles,
-      achievements:gameState.achievements.filter(a=>a.unlocked).map(a=>a.id),
-      inheritedEquipment
-    };
-    const nextBank:MountainLegacyBank={balance:Math.max(0,Math.floor(gameState.gold)),equipment:inheritedEquipment,updatedAt:now};
-    const nextRecords=[record,...existing].slice(0,100);
-    try{
-      saveMountainLegacyBank(nextBank);
-      saveMountainHistory(nextRecords);
-      setLegacyBank(nextBank);
-      setHistoryRecords(nextRecords);
-    }catch(error){console.warn('Mountain legacy settlement failed:',error);}
-  },[gameState,hasMountainBlessing]);
+    settleMountainLegacy(gameState,outcome);
+  },[gameState,hasMountainBlessing,settleMountainLegacy]);
 
   const currentLandmark = LANDMARKS[gameState.currentLandmarkIndex];
   const hasCheckedInCurrent = gameState.checkedInLandmarks.includes(currentLandmark.id);
@@ -1013,6 +1022,17 @@ const App: React.FC = () => {
     setCurrentEventImage(null);
   };
 
+  const handleAbandonChallenge=()=>{
+    if(hasMountainBlessing){
+      const stateToArchive=gameState.runId?gameState:{...gameState,runId:`legacy-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`};
+      if(!settleMountainLegacy(stateToArchive,'abandoned')){
+        window.alert('山神档案保存失败，本局暂未退出。请检查浏览器存储空间后重试。');
+        return;
+      }
+    }
+    resetToHome();
+  };
+
   if (gameState.phase === 'landing') {
     return (
       <>
@@ -1069,7 +1089,7 @@ const App: React.FC = () => {
     return <GameOverModal gameState={gameState} t={t} landmarks={LANDMARKS} onResetToHome={resetToHome} />;
   }
   if (gameState.phase === 'hiking') {
-    return <OfficialGameplay gameState={gameState} sceneMode={gameState.sceneMode || 'inn'} hasMountainBlessing={hasMountainBlessing} currentEvent={currentEvent} eventImage={currentEventImage} onEventChoice={handleSceneEventChoice} onAdvance={handleSceneAdvance} onEnterInn={() => setGameState(p => ({ ...p, sceneMode: 'inn' }))} onQuickAction={handleQuickAction} onUseItem={handleUseItem} onAbandon={resetToHome} onReturnHome={() => setGameState(p => ({ ...p, phase: 'landing' }))} />;
+    return <OfficialGameplay gameState={gameState} sceneMode={gameState.sceneMode || 'inn'} hasMountainBlessing={hasMountainBlessing} currentEvent={currentEvent} eventImage={currentEventImage} onEventChoice={handleSceneEventChoice} onAdvance={handleSceneAdvance} onEnterInn={() => setGameState(p => ({ ...p, sceneMode: 'inn' }))} onQuickAction={handleQuickAction} onUseItem={handleUseItem} onAbandon={handleAbandonChallenge} onReturnHome={() => setGameState(p => ({ ...p, phase: 'landing' }))} />;
   }
 
 };
