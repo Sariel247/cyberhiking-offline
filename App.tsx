@@ -897,7 +897,7 @@ const App: React.FC = () => {
     const activeRoute=getRouteWaypoints(gameState.startPoint);
     const routeEndIndex=activeRoute.length-1;
     if (gameState.sceneMode === 'inn') {
-      setGameState(p => ({ ...p, sceneMode: 'trail', time: p.time + 0.15, ambientTemp: 3, log: [...p.log, '[SCENE] 离开驴友之家，来到塘口山道。'].slice(-LOG_LIMIT) }));
+      setGameState(p => ({ ...p, sceneMode: 'trail', time: p.time + 0.15, ambientTemp: 3, log: [...p.log, gameState.startPoint==='huangbaiyuan'?'[SCENE] 离开黄柏塬镇补给点，前往23km登山口。':'[SCENE] 离开驴友之家，来到塘口山道。'].slice(-LOG_LIMIT) }));
       return;
     }
     const triggered = gameState.triggeredEvents;
