@@ -15,12 +15,13 @@ const GameOverModal: React.FC<GameOverModalProps> = ({
   onResetToHome
 }) => {
   if (gameState.phase !== 'gameover') return null;
+  const isSuccess = gameState.endReason ? gameState.endReason === 'success' : gameState.currentLandmarkIndex === landmarks.length - 1 && gameState.status.health > 0;
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-500 hardware-accel">
       <div className="max-w-md w-full cyber-panel p-8 rounded-[2.5rem] border border-red-500/20 text-center space-y-8 shadow-2xl">
-        <h2 className={`text-4xl md:text-5xl font-black italic uppercase tracking-tighter ${gameState.currentLandmarkIndex === landmarks.length - 1 && gameState.status.health > 0 ? 'text-emerald-500' : 'text-neon-red text-red-700'}`}>
-          {gameState.currentLandmarkIndex === landmarks.length - 1 && gameState.status.health > 0 ? t.success : t.failed}
+        <h2 className={`text-4xl md:text-5xl font-black italic uppercase tracking-tighter ${isSuccess ? 'text-emerald-500' : 'text-neon-red text-red-700'}`}>
+          {isSuccess ? t.success : t.failed}
         </h2>
         <p className="text-slate-300 text-xs leading-relaxed italic border-y border-white/5 py-6 px-4">
           {gameState.gameMessage[gameState.language]}
