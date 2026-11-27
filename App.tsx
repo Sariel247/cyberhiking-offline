@@ -910,7 +910,13 @@ const App: React.FC = () => {
       return;
     }
     if (!triggered.includes('script_missing_notice')) {
-      setCurrentEvent(SCRIPTED_MISSING_EVENT);
+      setCurrentEvent(gameState.startPoint==='huangbaiyuan'?{
+        ...SCRIPTED_MISSING_EVENT,
+        description:{
+          zh:SCRIPTED_MISSING_EVENT.description.zh.replace('塘口路边的公告栏','黄柏塬镇通往23km登山口的路边公告栏'),
+          en:SCRIPTED_MISSING_EVENT.description.en.replace('by the Tangkou roadside','on the road from Huangbaiyuan Town to the 23km trailhead')
+        }
+      }:SCRIPTED_MISSING_EVENT);
       setCurrentEventImage('https://d2oyd22xy9utpf.cloudfront.net/images/events/missing_person.webp');
       setGameState(p => ({ ...p, time: p.time + 0.25, status: { ...nextStatus, weight: calculateWeight(p.inventory) }, log:[...p.log,...statusAlerts.map(a=>'[STATUS] '+a)].slice(-LOG_LIMIT) }));
       return;
