@@ -987,6 +987,7 @@ const App: React.FC = () => {
       day: newDay,
       status: next,
       phase: gameOver.isOver ? 'gameover' : p.phase,
+      endReason: gameOver.isOver ? 'death' : p.endReason,
       gameMessage: gameOver.isOver ? { zh: gameOver.message, en: gameOver.message } : p.gameMessage,
       deathCauseChain: gameOver.isOver && gameOver.cause ? [{ zh: gameOver.cause, en: gameOver.cause }] : p.deathCauseChain,
       log: [...p.log, '[ACTION] ' + message, ...alerts.map(a => '[STATUS] ' + a)].slice(-LOG_LIMIT)
