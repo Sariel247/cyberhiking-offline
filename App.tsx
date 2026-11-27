@@ -76,7 +76,7 @@ const App: React.FC = () => {
       const knownIds=new Set(SHOP_ITEMS.map(item=>item.id));
       const equipment=backup.bank.equipment.filter(asset=>knownIds.has(asset.itemId)&&Number.isFinite(asset.quantity)&&asset.quantity>0).map(asset=>({itemId:asset.itemId,quantity:Math.min(99,Math.floor(asset.quantity))}));
       const nextBank:MountainLegacyBank={balance:Math.max(0,Math.floor(backup.bank.balance)),equipment,updatedAt:backup.bank.updatedAt||new Date().toISOString()};
-      const nextRecords=backup.records.filter(record=>record&&typeof record.id==='string'&&(record.outcome==='success'||record.outcome==='failed')).slice(0,100);
+      const nextRecords=backup.records.filter(record=>record&&typeof record.id==='string'&&(record.outcome==='success'||record.outcome==='failed')).map(record=>({...record,days:Math.max(0,Math.floor(record.days||0)),merit:Math.floor(record.merit||0),landmarksReached:Math.max(0,Math.floor(record.landmarksReached||0)),gold:Math.max(0,Math.floor(record.gold||0)),titles:Array.isArray(record.titles)?record.titles.filter(x=>typeof x==='string'):[],achievements:Array.isArray(record.achievements)?record.achievements.filter(x=>typeof x==='string'):[],inheritedEquipment:Array.isArray(record.inheritedEquipment)?record.inheritedEquipment.filter(x=>x&&typeof x.itemId==='string'&&Number.isFinite(x.quantity)&&x.quantity>0):[]})).slice(0,100);
       saveMountainLegacyBank(nextBank);
       saveMountainHistory(nextRecords);
       setLegacyBank(nextBank);
