@@ -12,6 +12,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'a8', name: { zh: '环保先锋', en: 'Eco Pioneer' }, description: { zh: '通过清理垃圾获得超过50点功德', en: '50+ Merit from trash' }, unlocked: false, category: 'merit', icon: '♻️' },
   { id: 'a9', name: { zh: '足迹记录者', en: 'Footprint Tracer' }, description: { zh: '在3个不同的重要点位完成数字签到', en: 'Check-in at 3 unique landmarks' }, unlocked: false, category: 'exploration', icon: '📍' },
   { id: 'a10', name: { zh: '鳌太万事通', en: 'Aotai Navigator' }, description: { zh: '在鳌太全线所有重要点位完成签到', en: 'Check-in at all landmarks' }, unlocked: false, category: 'exploration', icon: '🗺️' },
+  { id: 'a11', name: { zh: '药农遗泽', en: 'Herbalist’s Legacy' }, description: { zh: '完成老药农的草木观察支线', en: 'Complete the old herbalist field-notes branch' }, unlocked: false, category: 'exploration', icon: '🌿' },
+  { id: 'a12', name: { zh: '识药手札', en: 'Herb Identification Notes' }, description: { zh: '完成慕老师识药记录并收藏纪念物', en: 'Complete the herb-identification notes and collect the memento' }, unlocked: false, category: 'exploration', icon: '📓' },
 ];
 
 export const LANDMARKS: Landmark[] = [
@@ -186,7 +188,8 @@ export const INITIAL_GAME_STATE: GameState = {
   startWeight: 1.8,
   isCamping: false,
   deathCauseChain: [],
-  triggeredEvents: []
+  triggeredEvents: [],
+  collectibles: []
 };
 
 export const LOCAL_EVENTS: RandomEvent[] = [

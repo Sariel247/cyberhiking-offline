@@ -103,6 +103,9 @@ export interface EventChoice {
   conditionRemoved?: string;
   requiredItems?: { itemId: string; quantity: number }[];
   rewardItems?: { itemId: string; quantity: number }[];
+  followUpEventId?: string;
+  completeEventId?: string;
+  collectibleId?: string;
 }
 
 export interface RandomEvent {
@@ -141,4 +144,5 @@ export interface GameState {
   isCamping: boolean;
   deathCauseChain: { zh: string; en: string }[]; // 死亡原因链条
   triggeredEvents: string[]; // 已触发的事件ID列表，用于减少重复
+  collectibles?: string[]; // 本地收集的纪念物，跨新旅程保留
 }

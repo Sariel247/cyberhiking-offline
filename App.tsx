@@ -51,6 +51,59 @@ const SEARCH_ROOTS_EVENT: RandomEvent = {
 };
 
 
+
+const HERB_OLD_FARMER_EVENT: RandomEvent = {
+  id: 'herb_old_farmer',
+  title: { zh: '老药农的药篓', en: 'The Old Herbalist’s Basket' },
+  description: {
+    zh: '山路旁，一位背着旧药篓的老药农正在整理草木。见你停下观察，他提醒你：辨草识药不能只凭一眼，更不能把来历不明的植物随意入口。若想留下记录，先观察形态与生境，再请懂行的人核对。',
+    en: 'Beside the trail, an old herbalist is sorting plants in a worn basket. He reminds you that plants should never be identified at a glance or eaten casually. Observe their features and habitat, then ask someone knowledgeable to verify your notes.'
+  },
+  choices: [
+    {
+      text: { zh: '记录叶形与生境，带去请慕老师辨认', en: 'Record the leaf shape and habitat for Ms. Mu to review' },
+      log: { zh: '你仔细记录了所见特征，没有采食或随意采摘，并决定把观察笔记交给慕老师核对。', en: 'You record the visible features without eating or casually collecting the plant, then decide to ask Ms. Mu to review your notes.' },
+      healthImpact: 0, staminaImpact: -2, meritImpact: 3,
+      completeEventId: 'herb_sidequest_completed',
+      followUpEventId: 'mu_teacher_herb'
+    },
+    {
+      text: { zh: '向老药农请教观察与记录的方法', en: 'Ask the old herbalist how to observe and document plants' },
+      log: { zh: '老药农教你先记录叶形、茎部与生长环境，再把不确定之处留待核实。你将这份经验记进了行程日志。', en: 'The old herbalist suggests recording leaf shape, stems, and habitat while leaving uncertain details unverified. You add the advice to your trail log.' },
+      healthImpact: 0, staminaImpact: 0, meritImpact: 2,
+      completeEventId: 'herb_sidequest_completed'
+    },
+    {
+      text: { zh: '道谢后继续前行', en: 'Thank him and continue' },
+      log: { zh: '你向老药农道谢，没有采摘或食用不明植物，继续沿路前行。', en: 'You thank the old herbalist, avoid collecting or eating unknown plants, and continue along the trail.' },
+      healthImpact: 0, staminaImpact: 0, meritImpact: 0
+    }
+  ]
+};
+
+const MU_TEACHER_HERB_EVENT: RandomEvent = {
+  id: 'mu_teacher_herb',
+  title: { zh: '慕老师的识药记录', en: 'Ms. Mu’s Herb-Identification Notes' },
+  description: {
+    zh: '慕老师查看了你的观察记录。她没有仅凭一张模糊照片就给出植物名称，而是带你逐项核对叶片形态、生长环境与记录完整度，并提醒：无法确认的样本应保留为待核实，不可凭猜测采食。',
+    en: 'Ms. Mu reviews your field notes. Rather than naming a plant from an unclear photo, she walks through its visible features, habitat, and the quality of your observations. Anything uncertain remains unverified and must never be eaten based on a guess.'
+  },
+  choices: [
+    {
+      text: { zh: '整理成《草木识药手札》', en: 'Compile the Herb-Identification Field Notes' },
+      log: { zh: '你把观察方法与待核实项目整理成《草木识药手札》。这份记录成为本次旅程的纪念物。', en: 'You compile the observation method and unverified details into the Herb-Identification Field Notes, a memento from this journey.' },
+      healthImpact: 0, staminaImpact: 0, meritImpact: 5,
+      completeEventId: 'herb_identified',
+      collectibleId: 'herb_field_notes'
+    },
+    {
+      text: { zh: '保留观察记录，标记为待核实', en: 'Keep the notes marked as unverified' },
+      log: { zh: '你没有急于给植物定名，而是把记录保留为待核实资料。谨慎也是识药的一部分。', en: 'You avoid assigning a name prematurely and keep the observation marked as unverified. Caution is part of identification.' },
+      healthImpact: 0, staminaImpact: 0, meritImpact: 2
+    }
+  ]
+};
+
 const SAVE_KEY='cyberHike_offline_save_v1';
 const MOUNTAIN_BLESSING_KEY='cyberHike_mountain_blessing_v1';
 const LEGACY_EQUIPMENT_IDS=new Set(['pack45','pack65','pack85','pack100','exo1','exo2','exo3','g2','g14','g15','g3','g16','g17','g20','g8','g24','g26']);
@@ -192,6 +245,8 @@ const App: React.FC = () => {
       // 打卡联动成就
       if (a.id === 'a9' && state.checkedInLandmarks.length >= 3) shouldUnlock = true;
       if (a.id === 'a10' && state.checkedInLandmarks.length >= LANDMARKS.length) shouldUnlock = true;
+      if (a.id === 'a11' && state.triggeredEvents.includes('herb_sidequest_completed')) shouldUnlock = true;
+      if (a.id === 'a12' && state.triggeredEvents.includes('herb_identified')) shouldUnlock = true;
       
       if (state.phase === 'gameover' && state.status.health > 0 && state.currentLandmarkIndex === LANDMARKS.length - 1) {
          if (a.id === 'a1') shouldUnlock = true;
@@ -541,6 +596,7 @@ const App: React.FC = () => {
   };
 
   const handleEventChoice = (choice: EventChoice) => {
+    const activeEventId = currentEvent?.id;
     let alerts: string[] = [];
     setGameState(p => {
       let newInventory = [...p.inventory];
@@ -619,19 +675,35 @@ const App: React.FC = () => {
       }
 
       const newLogs = [...p.log, `[EVENT] ${choice.log[p.language]}`].slice(-LOG_LIMIT);
-
-      return {
+      const triggeredEvents = [...new Set([
+        ...p.triggeredEvents,
+        ...(activeEventId ? [activeEventId] : []),
+        ...(choice.completeEventId ? [choice.completeEventId] : [])
+      ])];
+      const collectibles = choice.collectibleId
+        ? [...new Set([...(p.collectibles || []), choice.collectibleId])]
+        : (p.collectibles || []);
+      const nextState: GameState = {
         ...p,
         inventory: newInventory,
         merit: p.merit + choice.meritImpact,
         peopleSaved: p.peopleSaved + (choice.meritImpact >= 100 ? 1 : 0),
         log: newLogs,
-        status: { ...nextStatus, weight: calculateWeight(newInventory) },
-        achievements: settleAchievements({ ...p, status: nextStatus, merit: p.merit + choice.meritImpact, peopleSaved: p.peopleSaved + (choice.meritImpact >= 100 ? 1 : 0) } as GameState)
+        triggeredEvents,
+        collectibles,
+        status: { ...nextStatus, weight: calculateWeight(newInventory) }
       };
+
+      return { ...nextState, achievements: settleAchievements(nextState) };
     });
     alerts.forEach(alert => addLog(alert));
-    setCurrentEvent(null);
+    if (choice.followUpEventId === 'mu_teacher_herb') {
+      setCurrentEvent(MU_TEACHER_HERB_EVENT);
+      setCurrentEventImage(null);
+    } else {
+      setCurrentEvent(null);
+      setCurrentEventImage(null);
+    }
   };
 
   const handleUseItem = (item: InventoryItem) => {
@@ -999,8 +1071,13 @@ const App: React.FC = () => {
       log: [...p.log, '[ACTION] ' + message, ...alerts.map(a => '[STATUS] ' + a)].slice(-LOG_LIMIT)
     }));
     if (action === 'search' && !gameOver.isOver) {
-      setCurrentEvent(SEARCH_ROOTS_EVENT);
+      const startHerbSideQuest = gameState.currentLandmarkIndex >= 1 && !gameState.triggeredEvents.includes('herb_sidequest_started');
+      const searchEvent = startHerbSideQuest ? HERB_OLD_FARMER_EVENT : SEARCH_ROOTS_EVENT;
+      setCurrentEvent(searchEvent);
       setCurrentEventImage(null);
+      if (startHerbSideQuest) {
+        setGameState(p => ({ ...p, triggeredEvents: [...new Set([...p.triggeredEvents, 'herb_sidequest_started', searchEvent.id])] }));
+      }
     }
   };
 
@@ -1032,7 +1109,7 @@ const App: React.FC = () => {
       if(existing)existing.quantity=Math.max(existing.quantity,asset.quantity);
       else baseInventory.push({...base,quantity:asset.quantity,isEquipped:false});
     });
-    setGameState(p=>({...INITIAL_GAME_STATE,achievements:p.achievements,inventory:baseInventory,gold:hasMountainBlessing?legacyBank.balance:INITIAL_GAME_STATE.gold,phase:'startpoint',runId:undefined}));
+    setGameState(p=>({...INITIAL_GAME_STATE,achievements:p.achievements,collectibles:p.collectibles||[],inventory:baseInventory,gold:hasMountainBlessing?legacyBank.balance:INITIAL_GAME_STATE.gold,phase:'startpoint',runId:undefined}));
     setShoppingCart(inheritedHasPack?{}:{pack65:1});
     setCurrentEvent(null);
     setCurrentEventImage(null);
@@ -1046,7 +1123,7 @@ const App: React.FC = () => {
         return;
       }
     }
-    setGameState(p => ({ ...INITIAL_GAME_STATE, achievements: p.achievements }));
+    setGameState(p => ({ ...INITIAL_GAME_STATE, achievements: p.achievements, collectibles: p.collectibles || [] }));
     setShoppingCart({ pack65: 1 });
     setCurrentEvent(null);
     setCurrentEventImage(null);
@@ -1083,6 +1160,7 @@ const App: React.FC = () => {
         <AchievementModal
           show={showAchievements}
           achievements={gameState.achievements}
+          collectibles={gameState.collectibles || []}
           language={gameState.language}
           t={t}
           onClose={() => setShowAchievements(false)}
