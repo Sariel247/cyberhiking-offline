@@ -68,7 +68,9 @@ export const loadMountainHistory = (): MountainHistoryRecord[] => {
     if (!Array.isArray(parsed)) return [];
     return parsed.filter((x): x is MountainHistoryRecord =>
       !!x && typeof x.id === 'string' && typeof x.endedAt === 'string' &&
-      (x.outcome === 'success' || x.outcome === 'failed') && typeof x.routeName === 'string'
+      (x.outcome === 'success' || x.outcome === 'failed') && typeof x.routeName === 'string' &&
+      Number.isFinite(x.days) && Number.isFinite(x.merit) && Number.isFinite(x.gold) &&
+      Array.isArray(x.titles) && Array.isArray(x.achievements) && Array.isArray(x.inheritedEquipment)
     ).slice(0, 100);
   } catch {
     return [];
@@ -95,10 +97,15 @@ export const createMountainLegacyBackup = (
 export const isMountainLegacyBackup = (value: unknown): value is MountainLegacyBackup => {
   if (!value || typeof value !== 'object') return false;
   const v = value as Partial<MountainLegacyBackup>;
-  return v.format === 'cyberhiking-mountain-legacy' &&
-    v.version === 1 &&
-    !!v.bank && Number.isFinite(v.bank.balance) &&
-    Array.isArray(v.bank.equipment) &&
-    Array.isArray(v.records) &&
-    Array.isArray(v.unlockedAchievementIds);
+  if (v.format !== 'cyberhiking-mountain-legacy' || v.version !== 1 || !v.bank ||
+      !Number.isFinite(v.bank.balance) || !Array.isArray(v.bank.equipment) ||
+      !Array.isArray(v.records) || !Array.isArray(v.unlockedAchievementIds)) return false;
+  const validAssets = v.bank.equipment.every(asset => !!asset && typeof asset.itemId === 'string' && Number.isFinite(asset.quantity) && asset.quantity > 0);
+  const validRecords = v.records.every(record => !!record && typeof record.id === 'string' &&
+    typeof record.endedAt === 'string' && typeof record.routeName === 'string' &&
+    (record.outcome === 'success' || record.outcome === 'failed') &&
+    Number.isFinite(record.days) && Number.isFinite(record.merit) && Number.isFinite(record.gold) &&
+    Array.isArray(record.titles) && record.titles.every(title => typeof title === 'string') &&
+    Array.isArray(record.achievements) && Array.isArray(record.inheritedEquipment));
+  return validAssets && validRecords && v.unlockedAchievementIds.every(id => typeof id === 'string');
 };
