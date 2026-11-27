@@ -61,7 +61,7 @@ const loadGameState=():GameState=>{
  const inventory=Array.isArray(saved.inventory)?saved.inventory.map((v:any)=>{const item=catalog.get(v.id);return item?{...item,...v,effect:item.effect}:v}):base.inventory;
  if(!inventory.some((i:any)=>i.id==='diary')) inventory.push({...DIARY_ITEM});
  const achievements=base.achievements.map(a=>({...a,unlocked:saved.achievements?.find(v=>v.id===a.id)?.unlocked??a.unlocked}));
- return {...base,...saved,status:{...base.status,...(saved.status||{})},inventory,achievements} as GameState;
+ return {...base,...saved,runId:saved.runId||((saved.phase==='hiking'||(saved.phase==='landing'&&(saved.log?.length||0)>0))?`legacy-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`:undefined),status:{...base.status,...(saved.status||{})},inventory,achievements} as GameState;
  }catch{return base}
 };
 const App: React.FC = () => {
@@ -110,7 +110,7 @@ const App: React.FC = () => {
       const knownIds=new Set(SHOP_ITEMS.map(item=>item.id));
       const equipment=backup.bank.equipment.filter(asset=>knownIds.has(asset.itemId)&&Number.isFinite(asset.quantity)&&asset.quantity>0).map(asset=>({itemId:asset.itemId,quantity:Math.min(99,Math.floor(asset.quantity))}));
       const nextBank:MountainLegacyBank={balance:Math.max(0,Math.floor(backup.bank.balance)),equipment,updatedAt:backup.bank.updatedAt||new Date().toISOString()};
-      const nextRecords=backup.records.filter(record=>record&&typeof record.id==='string'&&(record.outcome==='success'||record.outcome==='failed')).map(record=>({...record,days:Math.max(0,Math.floor(record.days||0)),merit:Math.floor(record.merit||0),landmarksReached:Math.max(0,Math.floor(record.landmarksReached||0)),gold:Math.max(0,Math.floor(record.gold||0)),titles:Array.isArray(record.titles)?record.titles.filter(x=>typeof x==='string'):[],achievements:Array.isArray(record.achievements)?record.achievements.filter(x=>typeof x==='string'):[],inheritedEquipment:Array.isArray(record.inheritedEquipment)?record.inheritedEquipment.filter(x=>x&&typeof x.itemId==='string'&&Number.isFinite(x.quantity)&&x.quantity>0):[]})).slice(0,100);
+      const nextRecords=backup.records.filter(record=>record&&typeof record.id==='string'&&(record.outcome==='success'||record.outcome==='failed'||record.outcome==='abandoned')).map(record=>({...record,days:Math.max(0,Math.floor(record.days||0)),merit:Math.floor(record.merit||0),landmarksReached:Math.max(0,Math.floor(record.landmarksReached||0)),gold:Math.max(0,Math.floor(record.gold||0)),titles:Array.isArray(record.titles)?record.titles.filter(x=>typeof x==='string'):[],achievements:Array.isArray(record.achievements)?record.achievements.filter(x=>typeof x==='string'):[],inheritedEquipment:Array.isArray(record.inheritedEquipment)?record.inheritedEquipment.filter(x=>x&&typeof x.itemId==='string'&&Number.isFinite(x.quantity)&&x.quantity>0):[]})).slice(0,100);
       saveMountainLegacyBank(nextBank);
       saveMountainHistory(nextRecords);
       setLegacyBank(nextBank);
