@@ -14,6 +14,9 @@ import IntroSequence from './components/IntroSequence';
 import { StartPointModal, StoryScreen, OfficialShop, OfficialGameplay, getRouteWaypoints } from './components/ReplicaUI';
 import { useGameLogic } from './hooks/useGameLogic';
 import { useQuiz } from './hooks/useQuiz';
+import MountainLegacyModal from './components/MountainLegacyModal';
+import { loadMountainLegacyBank, loadMountainHistory, saveMountainLegacyBank, saveMountainHistory, isMountainLegacyBackup } from './services/mountainLegacy';
+import type { MountainLegacyBank, MountainHistoryRecord, MountainLegacyBackup } from './services/mountainLegacy';
 
 const LOG_LIMIT = 50;
 const SCRIPTED_MISSING_EVENT: RandomEvent = {
@@ -50,6 +53,7 @@ const SEARCH_ROOTS_EVENT: RandomEvent = {
 
 const SAVE_KEY='cyberHike_offline_save_v1';
 const MOUNTAIN_BLESSING_KEY='cyberHike_mountain_blessing_v1';
+const LEGACY_EQUIPMENT_IDS=new Set(['pack45','pack65','pack85','pack100','exo1','exo2','exo3','g2','g14','g15','g3','g16','g17','g20','g8','g24','g26']);
 const loadGameState=():GameState=>{
  const base:GameState={...INITIAL_GAME_STATE,status:{...INITIAL_GAME_STATE.status,conditions:[...INITIAL_GAME_STATE.status.conditions]},inventory:INITIAL_GAME_STATE.inventory.map(i=>({...i})),achievements:INITIAL_GAME_STATE.achievements.map(a=>({...a}))};
  try{const raw=localStorage.getItem(SAVE_KEY);if(!raw){const legacy=localStorage.getItem('cyberHike_achievements');const ids:string[]=legacy?JSON.parse(legacy):[];return {...base,achievements:base.achievements.map(a=>({...a,unlocked:ids.includes(a.id)}))}}
@@ -63,6 +67,26 @@ const loadGameState=():GameState=>{
 const App: React.FC = () => {
  const [gameState,setGameState]=useState<GameState>(()=>loadGameState());
   const [hasMountainBlessing,setHasMountainBlessing]=useState(()=>{try{return localStorage.getItem(MOUNTAIN_BLESSING_KEY)==='unlocked'}catch{return false}});
+  const [legacyBank,setLegacyBank]=useState<MountainLegacyBank>(()=>loadMountainLegacyBank());
+  const [historyRecords,setHistoryRecords]=useState<MountainHistoryRecord[]>(()=>loadMountainHistory());
+  const [showMountainLegacy,setShowMountainLegacy]=useState(false);
+  const importMountainLegacyBackup=(backup:MountainLegacyBackup)=>{
+    try{
+      if(!isMountainLegacyBackup(backup))return false;
+      const knownIds=new Set(SHOP_ITEMS.map(item=>item.id));
+      const equipment=backup.bank.equipment.filter(asset=>knownIds.has(asset.itemId)&&Number.isFinite(asset.quantity)&&asset.quantity>0).map(asset=>({itemId:asset.itemId,quantity:Math.min(99,Math.floor(asset.quantity))}));
+      const nextBank:MountainLegacyBank={balance:Math.max(0,Math.floor(backup.bank.balance)),equipment,updatedAt:backup.bank.updatedAt||new Date().toISOString()};
+      const nextRecords=backup.records.filter(record=>record&&typeof record.id==='string'&&(record.outcome==='success'||record.outcome==='failed')).slice(0,100);
+      saveMountainLegacyBank(nextBank);
+      saveMountainHistory(nextRecords);
+      setLegacyBank(nextBank);
+      setHistoryRecords(nextRecords);
+      const unlocked=new Set(backup.unlockedAchievementIds);
+      setGameState(p=>({...p,achievements:p.achievements.map(a=>({...a,unlocked:a.unlocked||unlocked.has(a.id)}))}));
+      return true;
+    }catch(error){console.warn('Mountain legacy restore failed:',error);return false;}
+  };
+
   const redeemMountainBlessing=(code:string)=>{
     const normalized=code.normalize('NFKC').replace(/\s+/g,'');
     if(normalized!=='雾尽见山神')return false;
@@ -98,6 +122,37 @@ const App: React.FC = () => {
 
   useEffect(() => { if(logEndRef.current) logEndRef.current.scrollIntoView({behavior:'auto'}); }, [gameState.log]);
   useEffect(()=>{try{const inventory=gameState.inventory.map(({effect,...item})=>item);localStorage.setItem(SAVE_KEY,JSON.stringify({...gameState,inventory}));localStorage.setItem('cyberHike_achievements',JSON.stringify(gameState.achievements.filter(a=>a.unlocked).map(a=>a.id)))}catch(e){console.warn('Local save failed:',e)}},[gameState]);
+
+  useEffect(()=>{
+    if(!hasMountainBlessing||gameState.phase!=='gameover'||!gameState.runId)return;
+    const existing=loadMountainHistory();
+    if(existing.some(record=>record.id===gameState.runId))return;
+    const now=new Date().toISOString();
+    const inheritedEquipment=gameState.inventory.filter(item=>LEGACY_EQUIPMENT_IDS.has(item.id)&&item.quantity>0).map(item=>({itemId:item.id,quantity:item.quantity}));
+    const outcome=gameState.status.health>0&&gameState.currentLandmarkIndex===LANDMARKS.length-1?'success':'failed';
+    const titles=gameState.achievements.filter(a=>a.unlocked).map(a=>a.name.zh);
+    const record:MountainHistoryRecord={
+      id:gameState.runId,
+      endedAt:now,
+      outcome,
+      routeName:gameState.startPoint==='huangbaiyuan'?'黄柏塬镇路线':'塘口经典路线',
+      days:gameState.day,
+      merit:gameState.merit,
+      landmarksReached:Math.max(1,gameState.currentLandmarkIndex+1),
+      gold:Math.max(0,Math.floor(gameState.gold)),
+      titles,
+      achievements:gameState.achievements.filter(a=>a.unlocked).map(a=>a.id),
+      inheritedEquipment
+    };
+    const nextBank:MountainLegacyBank={balance:Math.max(0,Math.floor(gameState.gold)),equipment:inheritedEquipment,updatedAt:now};
+    const nextRecords=[record,...existing].slice(0,100);
+    try{
+      saveMountainLegacyBank(nextBank);
+      saveMountainHistory(nextRecords);
+      setLegacyBank(nextBank);
+      setHistoryRecords(nextRecords);
+    }catch(error){console.warn('Mountain legacy settlement failed:',error);}
+  },[gameState,hasMountainBlessing]);
 
   const currentLandmark = LANDMARKS[gameState.currentLandmarkIndex];
   const hasCheckedInCurrent = gameState.checkedInLandmarks.includes(currentLandmark.id);
@@ -810,7 +865,8 @@ const App: React.FC = () => {
       inventory: autoEquippedInventory, 
       startWeight: weight, 
       status: { ...equippedStatus, weight, maxWeight }, 
-      log: storyLogs
+      log: storyLogs,
+      runId: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`
     }));
     setCurrentEvent(null);
     setCurrentEventImage(null);
@@ -933,8 +989,19 @@ const App: React.FC = () => {
   }, [gameState.language]);
 
   const startNewChallenge = () => {
-    setGameState(p => ({ ...INITIAL_GAME_STATE, achievements: p.achievements, phase: 'startpoint' }));
-    setShoppingCart({ pack65: 1 });
+    const packIds=['pack45','pack65','pack85','pack100'];
+    const inherited=hasMountainBlessing?legacyBank.equipment: [];
+    const inheritedHasPack=inherited.some(asset=>packIds.includes(asset.itemId));
+    const baseInventory=INITIAL_GAME_STATE.inventory.filter(item=>!inheritedHasPack||!packIds.includes(item.id)).map(item=>({...item}));
+    inherited.forEach(asset=>{
+      const base=SHOP_ITEMS.find(item=>item.id===asset.itemId);
+      if(!base)return;
+      const existing=baseInventory.find(item=>item.id===asset.itemId);
+      if(existing)existing.quantity=Math.max(existing.quantity,asset.quantity);
+      else baseInventory.push({...base,quantity:asset.quantity,isEquipped:false});
+    });
+    setGameState(p=>({...INITIAL_GAME_STATE,achievements:p.achievements,inventory:baseInventory,gold:hasMountainBlessing?legacyBank.balance:INITIAL_GAME_STATE.gold,phase:'startpoint',runId:undefined}));
+    setShoppingCart(inheritedHasPack?{}:{pack65:1});
     setCurrentEvent(null);
     setCurrentEventImage(null);
   };
@@ -982,7 +1049,9 @@ const App: React.FC = () => {
           translations={translations}
           hasMountainBlessing={hasMountainBlessing}
           onRedeemCode={redeemMountainBlessing}
+          onOpenLegacy={() => setShowMountainLegacy(true)}
         />
+        <MountainLegacyModal show={showMountainLegacy && hasMountainBlessing} bank={legacyBank} records={historyRecords} achievements={gameState.achievements} onClose={() => setShowMountainLegacy(false)} onImportBackup={importMountainLegacyBackup} />
       </>
     );
   }
