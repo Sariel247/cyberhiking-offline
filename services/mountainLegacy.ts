@@ -17,7 +17,7 @@ export interface MountainLegacyBank {
 export interface MountainHistoryRecord {
   id: string;
   endedAt: string;
-  outcome: 'success' | 'failed';
+  outcome: 'success' | 'failed' | 'abandoned';
   routeName: string;
   days: number;
   merit: number;
@@ -68,7 +68,7 @@ export const loadMountainHistory = (): MountainHistoryRecord[] => {
     if (!Array.isArray(parsed)) return [];
     return parsed.filter((x): x is MountainHistoryRecord =>
       !!x && typeof x.id === 'string' && typeof x.endedAt === 'string' &&
-      (x.outcome === 'success' || x.outcome === 'failed') && typeof x.routeName === 'string' &&
+      (x.outcome === 'success' || x.outcome === 'failed' || x.outcome === 'abandoned') && typeof x.routeName === 'string' &&
       Number.isFinite(x.days) && Number.isFinite(x.merit) && Number.isFinite(x.gold) &&
       Array.isArray(x.titles) && Array.isArray(x.achievements) && Array.isArray(x.inheritedEquipment)
     ).slice(0, 100);
@@ -103,7 +103,7 @@ export const isMountainLegacyBackup = (value: unknown): value is MountainLegacyB
   const validAssets = v.bank.equipment.every(asset => !!asset && typeof asset.itemId === 'string' && Number.isFinite(asset.quantity) && asset.quantity > 0);
   const validRecords = v.records.every(record => !!record && typeof record.id === 'string' &&
     typeof record.endedAt === 'string' && typeof record.routeName === 'string' &&
-    (record.outcome === 'success' || record.outcome === 'failed') &&
+    (record.outcome === 'success' || record.outcome === 'failed' || record.outcome === 'abandoned') &&
     Number.isFinite(record.days) && Number.isFinite(record.merit) && Number.isFinite(record.gold) &&
     Array.isArray(record.titles) && record.titles.every(title => typeof title === 'string') &&
     Array.isArray(record.achievements) && Array.isArray(record.inheritedEquipment));
