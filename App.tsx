@@ -64,7 +64,7 @@ const App: React.FC = () => {
  const [gameState,setGameState]=useState<GameState>(()=>loadGameState());
   const [hasMountainBlessing,setHasMountainBlessing]=useState(()=>{try{return localStorage.getItem(MOUNTAIN_BLESSING_KEY)==='unlocked'}catch{return false}});
   const redeemMountainBlessing=(code:string)=>{
-    const normalized=code.normalize('NFKC').replace(/\\s+/g,'');
+    const normalized=code.normalize('NFKC').replace(/\s+/g,'');
     if(normalized!=='雾尽见山神')return false;
     try{localStorage.setItem(MOUNTAIN_BLESSING_KEY,'unlocked');setHasMountainBlessing(true);return true}catch{return false}
   };
