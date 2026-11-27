@@ -117,6 +117,7 @@ export interface GameState {
   phase: GamePhase;
   sceneMode: 'inn' | 'trail';
   startPoint: 'tangkou' | 'huangbaiyuan';
+  runId?: string;
   routeIndex: number;
   ambientTemp: number;
   currentLandmarkIndex: number;
