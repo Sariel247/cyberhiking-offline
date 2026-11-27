@@ -45,12 +45,15 @@ export const OfficialShop:React.FC<{gameState:GameState;cart:Record<string,numbe
 };
 
 export const OfficialGameplay:React.FC<{gameState:GameState;sceneMode:'inn'|'trail';hasMountainBlessing:boolean;currentEvent:RandomEvent|null;eventImage?:string|null;onEventChoice:(c:EventChoice)=>void;onAdvance:()=>void;onEnterInn:()=>void;onQuickAction:(a:'exercise'|'search'|'rest')=>void;onUseItem:(i:InventoryItem)=>void;onAbandon:()=>void;onReturnHome:()=>void}>=({gameState,sceneMode,hasMountainBlessing,currentEvent,eventImage,onEventChoice,onAdvance,onEnterInn,onQuickAction,onUseItem,onAbandon,onReturnHome})=>{
- const [bag,setBag]=useState(false),[profile,setProfile]=useState(false),[info,setInfo]=useState<'board'|'xiucai'|'diary'|null>(null),[letterNoted,setLetterNoted]=useState(false),[actionToast,setActionToast]=useState(''),[minimal,setMinimal]=useState(false),[doubleHide,setDoubleHide]=useState(false),[hidden,setHidden]=useState(false),[music,setMusic]=useState(false),[leaveConfirm,setLeaveConfirm]=useState(false),[abandonConfirm,setAbandonConfirm]=useState(false),[mapZoom,setMapZoom]=useState(1);
+ const [bag,setBag]=useState(false),[profile,setProfile]=useState(false),[info,setInfo]=useState<'board'|'xiucai'|'diary'|null>(null),[letterNoted,setLetterNoted]=useState(false),[actionToast,setActionToast]=useState(''),[minimal,setMinimal]=useState(false),[doubleHide,setDoubleHide]=useState(false),[hidden,setHidden]=useState(false),[music,setMusic]=useState(false),[leaveConfirm,setLeaveConfirm]=useState(false),[abandonConfirm,setAbandonConfirm]=useState(false),[mapZoom,setMapZoom]=useState(1),[selectedMapIndex,setSelectedMapIndex]=useState<number|null>(null),[mapFilter,setMapFilter]=useState<'all'|'key'>('all');
  const [tutorialStep,setTutorialStep]=useState(()=>{try{return localStorage.getItem('cyberHike_game_tutorial_v0155')==='1'?0:1}catch{return 1}});
  const routeWaypoints=getRouteWaypoints(gameState.startPoint),idx=Math.max(0,Math.min(gameState.routeIndex||0,routeWaypoints.length-1)),node=routeWaypoints[idx],loc=sceneMode==='inn'?(gameState.startPoint==='huangbaiyuan'?'黄柏塬镇':'塘口'):node.name,progress=Math.round(idx/Math.max(1,routeWaypoints.length-1)*100);
  const mapNodes=routeWaypoints.map((point,i)=>{const ratio=i/Math.max(1,routeWaypoints.length-1);return {...point,x:44+ratio*632,y:158+Math.sin(ratio*Math.PI*4.2)*48+Math.cos(ratio*Math.PI*7.1)*18};});
  const mapPath=mapNodes.map((point,i)=>`${i===0?'M':'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ');
  const mapTransform=`translate(${360*(1-mapZoom)} ${160*(1-mapZoom)}) scale(${mapZoom})`;
+ const selectedMapNode=selectedMapIndex===null?node:(routeWaypoints[selectedMapIndex]||node);
+ const selectedMapNodeIndex=selectedMapIndex===null?idx:selectedMapIndex;
+ useEffect(()=>{setSelectedMapIndex(idx)},[idx,gameState.startPoint]);
  const bg=sceneMode==='inn'?(gameState.startPoint==='huangbaiyuan'?'https://d2oyd22xy9utpf.cloudfront.net/images/backgrounds/lake.webp':'https://d2oyd22xy9utpf.cloudfront.net/images/backgrounds/tangkou_hiker_inn_interior.webp'):idx<=1?(gameState.startPoint==='huangbaiyuan'?'https://d2oyd22xy9utpf.cloudfront.net/images/backgrounds/lake.webp':'https://d2oyd22xy9utpf.cloudfront.net/images/backgrounds/tangkou_trailhead.webp'):'https://d2oyd22xy9utpf.cloudfront.net/images/backgrounds/lake.webp';
  const stats=[{n:'核心体温',v:gameState.status.bodyTemp.toFixed(1),u:'°C',p:Math.max(0,Math.min(100,(gameState.status.bodyTemp-34)/3.2*100)),c:'bg-emerald-400',i:'🌡️'},{n:'体能储备',v:Math.round(gameState.status.stamina),u:'',p:gameState.status.stamina,c:'bg-rose-400',i:'⚡'},{n:'精神意志',v:Math.round(gameState.status.health),u:'',p:gameState.status.health,c:'bg-violet-400',i:'🧠'},{n:'饱腹感',v:Math.round(gameState.status.energy),u:'',p:gameState.status.energy,c:'bg-amber-400',i:'🍖'}];
  const tutorialSteps=[
@@ -100,6 +103,8 @@ export const OfficialGameplay:React.FC<{gameState:GameState;sceneMode:'inn'|'tra
    <span className="min-w-10 text-center text-[9px] font-mono">{Math.round(mapZoom*100)}%</span>
    <button disabled={mapZoom>=1.8} onClick={()=>setMapZoom(v=>Math.min(1.8,Math.round((v+0.2)*10)/10))} className="h-7 w-7 rounded text-sm font-black disabled:opacity-30" aria-label="放大地图">＋</button>
    <button onClick={()=>setMapZoom(1)} className="rounded px-2 py-1 text-[9px]">复位</button>
+   <button onClick={()=>setSelectedMapIndex(idx)} className="rounded border border-[#b9a17a] px-2 py-1 text-[9px]">定位当前位置</button>
+   <button onClick={()=>setMapFilter(v=>v==='all'?'key':'all')} className="rounded border border-[#b9a17a] px-2 py-1 text-[9px]">{mapFilter==='all'?'仅看重点节点':'显示全部节点'}</button>
   </div>
  </div>
  <div className="relative overflow-hidden rounded-xl border border-[#b39a70] bg-[#e5d8bb]">
@@ -126,13 +131,17 @@ export const OfficialGameplay:React.FC<{gameState:GameState;sceneMode:'inn'|'tra
     <path d={mapPath} fill="none" stroke="#f4e8cf" strokeWidth="2" strokeDasharray="4 7" strokeLinecap="round"/>
     {mapNodes.map((point,i)=>{
       const isCurrent=i===idx;
+      const isSelected=i===selectedMapNodeIndex;
       const isPeak=(point.elevation||0)>=3400;
-      const showLabel=isCurrent||point.camp||point.branch||i===0||i===mapNodes.length-1||i%8===0;
+      const showPoint=mapFilter==='all'||point.camp||point.branch||i===0||i===mapNodes.length-1||isCurrent||isSelected;
+      const showLabel=isSelected||isCurrent||point.camp||point.branch||i===0||i===mapNodes.length-1||i%8===0;
       const labelY=point.y<125?point.y+25:point.y-16;
-      return <g key={point.name}>
-       <circle cx={point.x} cy={point.y} r={isCurrent?10:point.camp?7:point.branch?6:4} fill={isCurrent?'#d18b25':point.camp?'#3f754c':point.branch?'#79518a':isPeak?'#a74439':'#746b59'} stroke="#f8edd8" strokeWidth={isCurrent?3:1.5}/>
+      if(!showPoint)return null;
+      return <g key={point.name} role="button" tabIndex={0} aria-label={`选择路线节点：${point.name}`} style={{cursor:'pointer'}} onClick={()=>setSelectedMapIndex(i)} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();setSelectedMapIndex(i)}}}>
+       {isSelected&&<circle cx={point.x} cy={point.y} r="16" fill="none" stroke="#4e7891" strokeWidth="2.5" strokeDasharray="3 3"/>}
+       <circle cx={point.x} cy={point.y} r={isSelected?11:isCurrent?10:point.camp?7:point.branch?6:4} fill={isCurrent?'#d18b25':isSelected?'#4e7891':point.camp?'#3f754c':point.branch?'#79518a':isPeak?'#a74439':'#746b59'} stroke="#f8edd8" strokeWidth={isSelected||isCurrent?3:1.5}/>
        {point.branch&&<path d={`M ${point.x} ${point.y} l 18 -23`} stroke="#79518a" strokeWidth="2" strokeDasharray="3 3" fill="none"/>}
-       {showLabel&&<text x={point.x} y={labelY} textAnchor="middle" fontSize={isCurrent?11:9} fontWeight="700" fill={isCurrent?'#7b4c12':'#5b4a35'} stroke="#e9dfc9" strokeWidth="3" paintOrder="stroke">{point.name}</text>}
+       {showLabel&&<text x={point.x} y={labelY} textAnchor="middle" fontSize={isSelected||isCurrent?11:9} fontWeight="700" fill={isCurrent?'#7b4c12':isSelected?'#365c72':'#5b4a35'} stroke="#e9dfc9" strokeWidth="3" paintOrder="stroke">{point.name}</text>}
        {point.camp&&<text x={point.x+9} y={point.y+4} fontSize="10" fill="#315f3d">⛺</text>}
       </g>;
     })}
@@ -140,6 +149,13 @@ export const OfficialGameplay:React.FC<{gameState:GameState;sceneMode:'inn'|'tra
    <g transform="translate(666 36)" fill="#6f593a" stroke="#6f593a"><path d="M0 22 L10 0 L20 22 L10 17 Z" fill="#8b6d45"/><text x="10" y="-7" textAnchor="middle" fontSize="10" stroke="none" fontWeight="700">N</text></g>
    <text x="18" y="300" fontSize="10" fill="#8a7657">AOTAI TRAIL · ROUTE SKETCH</text>
   </svg>
+ </div>
+ <div className="mt-3 grid grid-cols-1 gap-2 rounded-xl border border-[#b9a17a]/70 bg-[#f1e6d1] p-3 text-[#5b4a35] sm:grid-cols-[1fr_auto] sm:items-center">
+  <div className="min-w-0">
+   <div className="flex flex-wrap items-center gap-2"><span className="text-[9px] text-[#88765a]">已选节点</span><b className="text-sm">{selectedMapNode.name}</b><span className="rounded-full bg-[#d8c8a8] px-2 py-1 text-[9px]">{selectedMapNodeIndex===idx?'当前位置':selectedMapNodeIndex<idx?'已经过节点':`前方第 ${selectedMapNodeIndex-idx} 个节点`}</span></div>
+   <p className="mt-1 text-[10px] text-[#88765a]">{selectedMapNode.elevation? `海拔约 ${selectedMapNode.elevation.toLocaleString('zh-CN')} m`:'暂无海拔资料'} · {selectedMapNode.camp?'营地节点':selectedMapNode.branch?'岔路标记':'普通路线节点'}{selectedMapNode.branch?' · 专属分支交互尚未接入':''}</p>
+  </div>
+  <button onClick={()=>setSelectedMapIndex(idx)} className="rounded-lg border border-[#b9a17a] px-3 py-2 text-[9px] font-bold">回到当前位置</button>
  </div>
  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[9px] text-[#705d43]">
   <span><b className="text-[#8b6d45]">━</b> 主线路径</span><span><b className="text-[#3f754c]">●</b> 营地</span><span><b className="text-[#a74439]">●</b> 高峰/垭口</span><span><b className="text-[#79518a]">◇</b> 岔路</span><span><b className="text-[#d18b25]">●</b> 当前位置</span>
