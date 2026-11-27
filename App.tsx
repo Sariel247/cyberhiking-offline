@@ -860,35 +860,46 @@ const App: React.FC = () => {
 
   const handleQuickAction = (action: 'exercise' | 'search' | 'rest') => {
     if (action === 'search' && gameState.sceneMode === 'inn') return;
-    const next = { ...gameState.status };
-    let minutes = 0;
+    const hours = action === 'exercise' ? 0.5 : action === 'rest' ? 0.5 : 1 / 6;
+    const mode = action === 'rest' ? 'passive' : 'active';
+    const next = updateStatus(gameState.status, gameState.weather, hours, mode);
     let message = '';
     if (action === 'exercise') {
-      minutes = 31;
+      // 原地活动通过肌肉产热改善核心体温，同时消耗少量体能与能量。
+      next.bodyTemp = Math.min(37.2, next.bodyTemp + 0.35);
       next.stamina = Math.max(0, next.stamina - 4);
       next.energy = Math.max(0, next.energy - 3);
-      message = '你原地活动了一会儿，勉强没让身子继续冷下去。';
+      if (next.bodyTemp >= 36.8) next.conditions = next.conditions.filter(c => c !== '失温');
+      message = '你原地活动了一会儿，身体逐渐暖和起来。';
     } else if (action === 'rest') {
-      next.bodyTemp = Math.max(34, next.bodyTemp - 0.1);
       next.stamina = Math.min(100, next.stamina + 2);
-      next.energy = Math.max(0, next.energy - 2);
-      message = '你原地休息了片刻，调整了呼吸。';
+      next.energy = Math.max(0, next.energy - 1);
+      message = '你原地休息了片刻，调整呼吸，恢复了一点体力。';
     } else {
-      minutes = 10;
       next.stamina = Math.max(0, next.stamina - 2);
       next.energy = Math.max(0, next.energy - 2);
-      message = '你在附近寻找可以利用的物资。';
+      message = '你在附近仔细搜寻可以利用的物资。';
     }
-    const raw = gameState.time + minutes / 60;
+    next.weight = calculateWeight(gameState.inventory);
+    const raw = gameState.time + hours;
+    const newTime = raw % 24;
+    const newDay = gameState.day + Math.floor(raw / 24);
+    const gameOver = checkGameOver(next, gameState.status);
+    const alerts = createStatusAlerts(gameState.status, next, gameState.language);
     setGameState(p => ({
       ...p,
-      time: raw % 24,
-      day: p.day + Math.floor(raw / 24),
-      ambientTemp: action === 'exercise' ? Math.min(7, (p.ambientTemp ?? 2) + 1) : p.ambientTemp,
-      status: { ...next, weight: calculateWeight(p.inventory) },
-      log: [...p.log, '[ACTION] ' + message].slice(-LOG_LIMIT)
+      time: newTime,
+      day: newDay,
+      status: next,
+      phase: gameOver.isOver ? 'gameover' : p.phase,
+      gameMessage: gameOver.isOver ? { zh: gameOver.message, en: gameOver.message } : p.gameMessage,
+      deathCauseChain: gameOver.isOver && gameOver.cause ? [{ zh: gameOver.cause, en: gameOver.cause }] : p.deathCauseChain,
+      log: [...p.log, '[ACTION] ' + message, ...alerts.map(a => '[STATUS] ' + a)].slice(-LOG_LIMIT)
     }));
-    if (action === 'search') { setCurrentEvent(SEARCH_ROOTS_EVENT); setCurrentEventImage(null); }
+    if (action === 'search' && !gameOver.isOver) {
+      setCurrentEvent(SEARCH_ROOTS_EVENT);
+      setCurrentEventImage(null);
+    }
   };
 
 
