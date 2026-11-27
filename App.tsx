@@ -61,7 +61,7 @@ const loadGameState=():GameState=>{
  const inventory=Array.isArray(saved.inventory)?saved.inventory.map((v:any)=>{const item=catalog.get(v.id);return item?{...item,...v,effect:item.effect}:v}):base.inventory;
  if(!inventory.some((i:any)=>i.id==='diary')) inventory.push({...DIARY_ITEM});
  const achievements=base.achievements.map(a=>({...a,unlocked:saved.achievements?.find(v=>v.id===a.id)?.unlocked??a.unlocked}));
- return {...base,...saved,runId:saved.runId||((saved.phase==='hiking'||(saved.phase==='landing'&&(saved.log?.length||0)>0))?`legacy-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`:undefined),status:{...base.status,...(saved.status||{})},inventory,achievements} as GameState;
+ return {...base,...saved,runId:saved.runId||((saved.phase==='hiking'||saved.phase==='gameover'||(saved.phase==='landing'&&(saved.log?.length||0)>0))?`legacy-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`:undefined),status:{...base.status,...(saved.status||{})},inventory,achievements} as GameState;
  }catch{return base}
 };
 const App: React.FC = () => {
@@ -159,7 +159,7 @@ const App: React.FC = () => {
 
   useEffect(()=>{
     if(!hasMountainBlessing||gameState.phase!=='gameover'||!gameState.runId)return;
-    const outcome=gameState.status.health>0&&gameState.currentLandmarkIndex===LANDMARKS.length-1?'success':'failed';
+    const outcome=gameState.endReason?(gameState.endReason==='success'?'success':'failed'):(gameState.status.health>0&&gameState.currentLandmarkIndex===LANDMARKS.length-1?'success':'failed');
     settleMountainLegacy(gameState,outcome);
   },[gameState,hasMountainBlessing,settleMountainLegacy]);
 
@@ -482,11 +482,11 @@ const App: React.FC = () => {
     // 先判断是否死亡，再判断是否通关
     if (gameOver.isOver) {
       const deathChain = gameOver.cause ? [{ zh: gameOver.cause, en: gameOver.cause }] : [];
-      const gs = { ...gameState, phase: 'gameover', status: nextStatus, currentLandmarkIndex: nextLandmarkIndex, progress: newProgress, gameMessage: { zh: gameOver.message, en: gameOver.message }, deathCauseChain: deathChain };
+      const gs = { ...gameState, phase: 'gameover', endReason: 'death', status: nextStatus, currentLandmarkIndex: nextLandmarkIndex, progress: newProgress, gameMessage: { zh: gameOver.message, en: gameOver.message }, deathCauseChain: deathChain };
       setGameState({ ...gs, achievements: settleAchievements(gs as GameState) } as GameState);
     } else if (isReachedFinalLandmark) {
       // 到达最后一个地标（厚畛子）则游戏胜利
-      const gs = { ...gameState, phase: 'gameover', status: nextStatus, currentLandmarkIndex: nextLandmarkIndex, progress: newProgress, gameMessage: { zh: "厚畛子镇的灯火映照在你颤抖的眼眸。你活着从鳌太线走了出来。\n\n秦岭圣山饶恕了你的渺小。但那些再也无法归家的灵魂，永远凝结在3767米的拔仙台。\n\n⛩️ 【圣山之誓】本游戏仅为虚构修行，真实鳌太穿越千倍死寂。2012-2024年58个灵魂永眠于此——他们都曾认为自己能活着回家。秦岭圣山已于2018年下达禁令，但每年仍有挑战者在风雪中消亡。每一具遗骸都在诉说：自然绝不留情。勿以身试法。勿让亲人哭泣。", en: "THE LIGHTS OF HOUZHENZI SHIMMER THROUGH YOUR TEARS. YOU ESCAPED THE AOTAI ALIVE.\n\nThe Sacred Mountain showed mercy to your insignificance. But 58 souls rest eternally at 3767m Baxiantai—all believed they would return.\n\n⛩️ 【OATH TO THE SACRED MOUNTAIN】This is fictional training only. The real Aotai Trail has slaughtered thousands. Between 2012-2024, 58 bodies were recovered—each belonged to someone who thought they would go home. The Sacred Mountain issued a ban in 2018. Yet every year more challengers freeze in the snow. Every skeleton screams the same truth: Nature shows ZERO mercy. Do not test fate. Do not break your family's hearts." } };
+      const gs = { ...gameState, phase: 'gameover', endReason: 'success', status: nextStatus, currentLandmarkIndex: nextLandmarkIndex, progress: newProgress, gameMessage: { zh: "厚畛子镇的灯火映照在你颤抖的眼眸。你活着从鳌太线走了出来。\n\n秦岭圣山饶恕了你的渺小。但那些再也无法归家的灵魂，永远凝结在3767米的拔仙台。\n\n⛩️ 【圣山之誓】本游戏仅为虚构修行，真实鳌太穿越千倍死寂。2012-2024年58个灵魂永眠于此——他们都曾认为自己能活着回家。秦岭圣山已于2018年下达禁令，但每年仍有挑战者在风雪中消亡。每一具遗骸都在诉说：自然绝不留情。勿以身试法。勿让亲人哭泣。", en: "THE LIGHTS OF HOUZHENZI SHIMMER THROUGH YOUR TEARS. YOU ESCAPED THE AOTAI ALIVE.\n\nThe Sacred Mountain showed mercy to your insignificance. But 58 souls rest eternally at 3767m Baxiantai—all believed they would return.\n\n⛩️ 【OATH TO THE SACRED MOUNTAIN】This is fictional training only. The real Aotai Trail has slaughtered thousands. Between 2012-2024, 58 bodies were recovered—each belonged to someone who thought they would go home. The Sacred Mountain issued a ban in 2018. Yet every year more challengers freeze in the snow. Every skeleton screams the same truth: Nature shows ZERO mercy. Do not test fate. Do not break your family's hearts." } };
       setGameState({ ...gs, achievements: settleAchievements(gs as GameState) } as GameState);
     } else {
       // 检查是否到达新地标
@@ -615,7 +615,7 @@ const App: React.FC = () => {
 
       if (gameOver.isOver) {
         const deathChain = gameOver.cause ? [{ zh: gameOver.cause, en: gameOver.cause }] : [];
-        return { ...p, phase: 'gameover', status: nextStatus, gameMessage: { zh: gameOver.message, en: gameOver.message }, deathCauseChain: deathChain };
+        return { ...p, phase: 'gameover', endReason: 'death', status: nextStatus, gameMessage: { zh: gameOver.message, en: gameOver.message }, deathCauseChain: deathChain };
       }
 
       const newLogs = [...p.log, `[EVENT] ${choice.log[p.language]}`].slice(-LOG_LIMIT);
@@ -754,7 +754,7 @@ const App: React.FC = () => {
 
     if (gameOver.isOver) {
       const deathChain = gameOver.cause ? [{ zh: gameOver.cause, en: gameOver.cause }] : [];
-      setGameState(p => ({ ...p, phase: 'gameover', status: nextStatus, gameMessage: { zh: gameOver.message, en: gameOver.message }, deathCauseChain: deathChain }));
+      setGameState(p => ({ ...p, phase: 'gameover', endReason: 'death', status: nextStatus, gameMessage: { zh: gameOver.message, en: gameOver.message }, deathCauseChain: deathChain }));
     } else {
       setGameState(p => ({
         ...p,
@@ -778,7 +778,7 @@ const App: React.FC = () => {
 
     if (gameOver.isOver) {
       const deathChain = gameOver.cause ? [{ zh: gameOver.cause, en: gameOver.cause }] : [];
-      setGameState(p => ({ ...p, phase: 'gameover', status: nextStatus, gameMessage: { zh: gameOver.message, en: gameOver.message }, deathCauseChain: deathChain }));
+      setGameState(p => ({ ...p, phase: 'gameover', endReason: 'death', status: nextStatus, gameMessage: { zh: gameOver.message, en: gameOver.message }, deathCauseChain: deathChain }));
     } else {
       setGameState(p => ({
         ...p,
@@ -902,17 +902,31 @@ const App: React.FC = () => {
     }
     const triggered = gameState.triggeredEvents;
     const nextStatus = updateStatus(gameState.status, gameState.weather, 0.25, 'active');
+    const statusAlerts=createStatusAlerts(gameState.status,nextStatus,gameState.language);
+    const advanceGameOver=checkGameOver(nextStatus,gameState.status);
+    if(advanceGameOver.isOver){
+      const deathChain=advanceGameOver.cause?[{zh:advanceGameOver.cause,en:advanceGameOver.cause}]:[];
+      setGameState(p=>({...p,phase:'gameover',endReason:'death',status:{...nextStatus,weight:calculateWeight(p.inventory)},gameMessage:{zh:advanceGameOver.message,en:advanceGameOver.message},deathCauseChain:deathChain,log:[...p.log,...statusAlerts.map(a=>'[STATUS] '+a)].slice(-LOG_LIMIT)}));
+      return;
+    }
     if (!triggered.includes('script_missing_notice')) {
       setCurrentEvent(SCRIPTED_MISSING_EVENT);
       setCurrentEventImage('https://d2oyd22xy9utpf.cloudfront.net/images/events/missing_person.webp');
-      setGameState(p => ({ ...p, time: p.time + 0.25, status: { ...nextStatus, weight: calculateWeight(p.inventory) } }));
+      setGameState(p => ({ ...p, time: p.time + 0.25, status: { ...nextStatus, weight: calculateWeight(p.inventory) }, log:[...p.log,...statusAlerts.map(a=>'[STATUS] '+a)].slice(-LOG_LIMIT) }));
       return;
     }
     if (!triggered.includes('script_injured_boar')) {
       const boarStatus = updateStatus(gameState.status, WeatherType.BREEZE, 0.35, 'active');
+      const boarAlerts=createStatusAlerts(gameState.status,boarStatus,gameState.language);
+      const boarGameOver=checkGameOver(boarStatus,gameState.status,SCRIPTED_BOAR_EVENT);
+      if(boarGameOver.isOver){
+        const deathChain=boarGameOver.cause?[{zh:boarGameOver.cause,en:boarGameOver.cause}]:[];
+        setGameState(p=>({...p,phase:'gameover',endReason:'death',status:{...boarStatus,weight:calculateWeight(p.inventory)},gameMessage:{zh:boarGameOver.message,en:boarGameOver.message},deathCauseChain:deathChain,log:[...p.log,...boarAlerts.map(a=>'[STATUS] '+a)].slice(-LOG_LIMIT)}));
+        return;
+      }
       setCurrentEvent(SCRIPTED_BOAR_EVENT);
       setCurrentEventImage(null);
-      setGameState(p => ({ ...p, routeIndex: 1, currentLandmarkIndex: 1, time: p.time + 0.35, weather: WeatherType.BREEZE, ambientTemp: 4 + Math.round(Math.random() * 3), status: { ...boarStatus, weight: calculateWeight(p.inventory) } }));
+      setGameState(p => ({ ...p, routeIndex: 1, currentLandmarkIndex: 1, time: p.time + 0.35, weather: WeatherType.BREEZE, ambientTemp: 4 + Math.round(Math.random() * 3), status: { ...boarStatus, weight: calculateWeight(p.inventory) }, log:[...p.log,...boarAlerts.map(a=>'[STATUS] '+a)].slice(-LOG_LIMIT) }));
       return;
     }
     const nextIndex = Math.min(routeEndIndex, (gameState.routeIndex || 0) + 1);
@@ -926,7 +940,9 @@ const App: React.FC = () => {
       ...p, routeIndex: nextIndex, currentLandmarkIndex: nextLandmark, time: nextTime, day: nextDay,
       weather: nextWeather, ambientTemp: Math.max(-12, Math.min(12, 4 - Math.floor(nextIndex / 5) + Math.round((Math.random() - 0.5) * 4))),
       status: { ...nextStatus, weight: calculateWeight(p.inventory) },
+      log:[...p.log,...statusAlerts.map(a=>'[STATUS] '+a)].slice(-LOG_LIMIT),
       phase: nextIndex >= routeEndIndex ? 'gameover' : p.phase,
+      endReason: nextIndex >= routeEndIndex ? 'success' : p.endReason,
       gameMessage: nextIndex >= routeEndIndex ? { zh: '你终于抵达南塬村。山路在身后渐渐隐入雾中，你带着疲惫与记忆，平安走出了这段旅程。', en: 'You reach Nanyuan Village and make it safely through the journey.' } : p.gameMessage
     }));
     if (nextIndex < routeEndIndex && Math.random() < 0.28) {
@@ -1016,6 +1032,13 @@ const App: React.FC = () => {
   };
 
   const resetToHome = () => {
+    if(gameState.phase==='gameover'&&hasMountainBlessing){
+      const outcome=gameState.endReason?(gameState.endReason==='success'?'success':'failed'):(gameState.status.health>0&&gameState.currentLandmarkIndex===LANDMARKS.length-1?'success':'failed');
+      if(!settleMountainLegacy(gameState,outcome)){
+        window.alert('山神档案保存失败，本局暂未返回首页。请检查浏览器存储空间后重试。');
+        return;
+      }
+    }
     setGameState(p => ({ ...INITIAL_GAME_STATE, achievements: p.achievements }));
     setShoppingCart({ pack65: 1 });
     setCurrentEvent(null);
