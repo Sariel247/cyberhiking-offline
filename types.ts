@@ -118,6 +118,7 @@ export interface GameState {
   sceneMode: 'inn' | 'trail';
   startPoint: 'tangkou' | 'huangbaiyuan';
   runId?: string;
+  endReason?: 'success' | 'death';
   routeIndex: number;
   ambientTemp: number;
   currentLandmarkIndex: number;
